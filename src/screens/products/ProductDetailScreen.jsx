@@ -15,6 +15,8 @@ import TypeBadge from '../../components/products/TypeBadge';
 import useAuthStore from '../../store/authStore';
 import * as Haptics from 'expo-haptics';
 import { resolveColorHex } from '../../lib/colors';
+import { alertDialog } from '../../lib/dialog';
+
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 // Myntra-style portrait frame — 3:4 width:height across app + web
@@ -72,7 +74,7 @@ export default function ProductDetailScreen({ route, navigation }) {
 
   const openConfirm = (title, message, actions, dismissible = true) => {
     if (Platform.OS !== 'web') {
-      Alert.alert(
+      alertDialog(
         title,
         message,
         actions.map((item) => ({

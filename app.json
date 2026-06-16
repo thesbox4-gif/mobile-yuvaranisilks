@@ -14,7 +14,7 @@
     "scheme": "yuvaranisilks",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.nanabanana.mobile",
+      "bundleIdentifier": "com.yuvaranisilks.app",
       "infoPlist": {
         "NSCameraUsageDescription": "Upload product images",
         "NSPhotoLibraryUsageDescription": "Choose product images from library"
@@ -25,7 +25,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1C1C1C"
       },
-      "package": "com.nanabanana.mobile",
+      "package": "com.yuvaranisilks.app",
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -41,6 +42,13 @@
         {
           "photosPermission": "Allow Yuvarani Silks to access your photos to upload product images.",
           "cameraPermission": "Allow Yuvarani Silks to use your camera to capture product images."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#f59e0b",
+          "defaultChannel": "default"
         }
       ],
       "expo-font"

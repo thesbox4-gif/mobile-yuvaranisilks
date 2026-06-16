@@ -12,17 +12,31 @@ async function refreshSession() {
 
   refreshPromise = (async () => {
     try {
-      const res = await fetch(`${API_URL}/auth/refresh`, {
+      const url = `${API_URL}/auth/refresh`;
+      const body = JSON.stringify({ refreshToken });
+      console.log('──────── API REFRESH REQUEST ────────');
+      console.log(`POST ${url}`);
+      console.log('Headers:', JSON.stringify({ 'Content-Type': 'application/json' }, null, 2));
+      console.log('Body:', body);
+
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
+        body,
       });
+
+      console.log(`──────── API REFRESH RESPONSE (${res.status}) ────────`);
+      const text = await res.text();
+      console.log('Response Body:', text);
+      console.log('────────────────────────────────');
+
       if (!res.ok) return null;
-      const data = await res.json();
+      const data = text ? JSON.parse(text) : null;
       if (!data?.token) return null;
       useAuthStore.getState().setAuth(data.token, useAuthStore.getState().user, data.refreshToken);
       return data.token;
-    } catch {
+    } catch (e) {
+      console.log('[API REFRESH ERROR]', e.message);
       return null;
     } finally {
       refreshPromise = null;
@@ -44,18 +58,29 @@ async function apiFetch(path, options = {}, _retry = false) {
     headers['Content-Type'] = 'application/json';
   }
 
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  const url = `${API_URL}${path}`;
+  console.log('──────── API REQUEST ────────');
+  console.log(`${options.method || 'GET'} ${url}`);
+  console.log('Headers:', JSON.stringify(headers, null, 2));
+  if (options.body) {
+    if (options.body instanceof FormData) {
+      console.log('Body: [FormData]');
+    } else {
+      console.log('Body:', options.body);
+    }
+  }
 
-  // A 401 from login/register/refresh means bad credentials — not an expired
-  // session — so let the real error message through instead of forcing logout.
+  const res = await fetch(url, { ...options, headers });
+
+  console.log(`──────── API RESPONSE (${res.status}) ────────`);
+  console.log(`URL: ${url}`);
+
   const isAuthEndpoint =
     path.startsWith('/auth/login') ||
     path.startsWith('/auth/register') ||
     path.startsWith('/auth/refresh');
 
   if (res.status === 401 && !isAuthEndpoint) {
-    // Try once to refresh the expired access token, then replay the request.
-    // FormData bodies are streams that cannot be re-sent, so skip the retry.
     if (!_retry && !(options.body instanceof FormData)) {
       const newToken = await refreshSession();
       if (newToken) return apiFetch(path, options, true);
@@ -64,9 +89,23 @@ async function apiFetch(path, options = {}, _retry = false) {
     throw new Error('Session expired. Please log in again.');
   }
 
-  if (res.status === 204) return null;
+  if (res.status === 204) {
+    console.log('Response Body: [204 No Content]');
+    console.log('────────────────────────────────');
+    return null;
+  }
 
-  const data = await res.json();
+  let data;
+  try {
+    const text = await res.text();
+    console.log('Response Body:', text);
+    console.log('────────────────────────────────');
+    data = text ? JSON.parse(text) : null;
+  } catch (e) {
+    console.log('[API JSON PARSE ERROR]', e.message);
+    console.log('────────────────────────────────');
+    throw new Error(`Request failed (${res.status}) - Invalid JSON response`);
+  }
 
   if (!res.ok) {
     throw new Error(data?.message || data?.error || `Request failed (${res.status})`);

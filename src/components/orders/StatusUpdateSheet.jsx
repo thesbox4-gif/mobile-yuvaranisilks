@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, Modal, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, Pressable, Modal, ActivityIndicator,  } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { updateOrderStatus } from '../../lib/api';
 import { VALID_ORDER_TRANSITIONS, ORDER_STATUS_CONFIG } from '../../constants';
+import { alertDialog } from '../../lib/dialog';
+
 
 export default function StatusUpdateSheet({ visible, onClose, orderId, currentStatus }) {
   const qc = useQueryClient();
@@ -21,7 +23,7 @@ export default function StatusUpdateSheet({ visible, onClose, orderId, currentSt
       onClose();
     },
     onError: (err) => {
-      Alert.alert('Error', err.message);
+      alertDialog('Error', err.message);
     },
   });
 

@@ -23,6 +23,10 @@ import { formatPrice, discountedPrice } from '../../../lib/utils';
 import { useHardwareBackHandler } from '../../../hooks/useHardwareBackHandler';
 import { resolveColorHex } from '../../../lib/colors';
 import HeroPhotoPreviewModal from '../../../components/products/HeroPhotoPreviewModal';
+import ImageZoomModal from '../../../components/ui/ImageZoomModal';
+import { buildPickerOptions, prepareImageForUpload } from '../../../lib/prepareImageForUpload';
+import { alertDialog } from '../../../lib/dialog';
+
 
 const WARM_BG = '#fffaf5';
 const CARD_BG = '#ffffff';
@@ -199,7 +203,7 @@ export default function ProductWizardScreen({ route, navigation }) {
 
   const openConfirm = (title, message, actions, dismissible = true) => {
     if (Platform.OS !== 'web') {
-      Alert.alert(
+      alertDialog(
         title,
         message,
         actions.map((item) => ({
@@ -347,7 +351,7 @@ export default function ProductWizardScreen({ route, navigation }) {
     const name = newColorName.trim();
     if (!name) return;
     if (wizardData.colors.some((c) => c.toLowerCase() === name.toLowerCase())) {
-      Alert.alert('Already added', `"${name}" is already in the colour list.`);
+      alertDialog('Already added', `"${name}" is already in the colour list.`);
       return;
     }
     addColorNamed(name);
@@ -381,84 +385,92 @@ export default function ProductWizardScreen({ route, navigation }) {
     const uploadSource = Platform.OS === 'web' && asset.file
       ? { file: asset.file, name: asset.file.name, uri: asset.uri }
       : asset.uri;
-    setUploading(`${color}::${label}`);
 
+    // Show local preview INSTANTLY — no waiting for upload
+    const newImages = [
+      ...wizardData.images.filter((i) => !(i.color === color && i.label === label)),
+      { color, label, uri: previewUri, uploadedUrl: null, generatedUrl: null, existing: false },
+    ];
+    update({ images: newImages });
+
+    // Upload in background
+    setUploading(`${color}::${label}`);
     try {
       const { url } = await uploadImage(uploadSource);
-      const newImages = [
-        ...wizardData.images.filter((i) => !(i.color === color && i.label === label)),
-        { color, label, uri: previewUri, uploadedUrl: url, generatedUrl: null, existing: false },
-      ];
-      update({ images: newImages });
+      // Update the image entry with the uploaded URL
+      setWizardData((prev) => ({
+        ...prev,
+        images: prev.images.map((i) =>
+          i.color === color && i.label === label
+            ? { ...i, uploadedUrl: url }
+            : i
+        ),
+      }));
       autoGenerateContent(color, url);
+    } catch (err) {
+      alertDialog('Upload failed', err.message || 'Could not upload image.');
     } finally {
       setUploading(null);
     }
   };
 
-  const offerHeroCropChoice = (color, label, asset, source) => {
-    const previewUri = Platform.OS === 'web' && asset.file
-      ? URL.createObjectURL(asset.file)
-      : asset.uri;
-    if (Platform.OS === 'web') {
-      setPhotoPreview({ color, label, asset, source, previewUri });
-      return;
-    }
-    Alert.alert(
-      label,
-      'Use full photo or crop with the system editor (fixed 3:4)?',
-      [
-        { text: 'Use photo', onPress: () => finalizePhotoUpload(color, label, asset) },
-        { text: 'Crop 3:4', onPress: () => pickImage(color, label, source, { forceCrop: true }) },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
-  };
-
-  const pickImage = async (color, label, source, { forceCrop = false } = {}) => {
+  const pickImageCore = async (color, label, source, forceCrop = false) => {
     try {
       if (source === 'camera') {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('Permission Required', 'Camera access is needed to take photos.');
+          alertDialog('Permission Required', 'Camera access is needed to take photos.');
           return;
         }
       } else {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('Permission Required', 'Photo library access is needed.');
+          alertDialog('Permission Required', 'Photo library access is needed.');
           return;
         }
       }
 
-      // Detail slots + jewellery: full frame for AI context. Hero saree slot:
-      // pick first, then optional 3:4 crop (never forced).
-      const baseOptions = { mediaTypes: ['images'], quality: 0.85 };
-      const options = forceCrop
-        ? { ...baseOptions, allowsEditing: true, aspect: [3, 4] }
-        : baseOptions;
+      const options = buildPickerOptions({ forceCrop });
+
       const result = source === 'camera'
         ? await ImagePicker.launchCameraAsync(options)
         : await ImagePicker.launchImageLibraryAsync(options);
 
       if (result.canceled) return;
-      const asset = result.assets[0];
 
-      if (!forceCrop && isHeroSlot(t, label)) {
-        offerHeroCropChoice(color, label, asset, source);
-        return;
-      }
-
-      await finalizePhotoUpload(color, label, asset);
+      const prepared = await prepareImageForUpload(result.assets[0]);
+      await finalizePhotoUpload(color, label, prepared);
     } catch (err) {
-      Alert.alert('Error', err.message || 'Failed to pick image.');
+      alertDialog('Error', err.message || 'Failed to pick image.');
     }
+  };
+
+  const pickImage = async (color, label, source) => {
+    const t = wizardData.type || type;
+    const isHero = isHeroSlot(t, label);
+    if (!isHero) {
+      return pickImageCore(color, label, source, false);
+    }
+
+    if (Platform.OS === 'web') {
+      return pickImageCore(color, label, source, false);
+    }
+
+    alertDialog(
+      label,
+      'Use full photo or crop to 3:4?',
+      [
+        { text: 'Use full photo', onPress: () => setTimeout(() => pickImageCore(color, label, source, false), 300) },
+        { text: 'Crop 3:4', onPress: () => setTimeout(() => pickImageCore(color, label, source, true), 300) },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
   };
 
   const generateAiImage = async (color, label) => {
     const img = imageFor(color, label);
     if (!img?.uploadedUrl) {
-      Alert.alert('No photo', 'Add a photo to this slot first.');
+      alertDialog('No photo', 'Add a photo to this slot first.');
       return;
     }
     setAiSlot(`${color}::${label}`);
@@ -477,7 +489,7 @@ export default function ProductWizardScreen({ route, navigation }) {
       update({ images: newImages });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
-      Alert.alert('AI generation failed', err.message);
+      alertDialog('AI generation failed', err.message);
     } finally {
       setAiSlot(null);
     }
@@ -489,7 +501,7 @@ export default function ProductWizardScreen({ route, navigation }) {
       (i) => i.color === color && i.uploadedUrl
     );
     if (pending.length === 0) {
-      Alert.alert('Nothing to generate', 'Upload photos for this colour first.');
+      alertDialog('Nothing to generate', 'Upload photos for this colour first.');
       return;
     }
     const ordered = [
@@ -517,7 +529,7 @@ export default function ProductWizardScreen({ route, navigation }) {
       // Draft the product name & description from the uploaded photo.
       autoGenerateContent(color, ordered[0]?.uploadedUrl);
     } catch (err) {
-      Alert.alert('AI generation failed', err.message);
+      alertDialog('AI generation failed', err.message);
     } finally {
       setAiColor(null);
     }
@@ -568,10 +580,10 @@ export default function ProductWizardScreen({ route, navigation }) {
     const buttons = buildPickerActions(color, label).map((item) => ({
       text: item.label,
       style: item.destructive ? 'destructive' : undefined,
-      onPress: item.action,
+      onPress: () => setTimeout(item.action, 300),
     }));
     buttons.push({ text: 'Cancel', style: 'cancel' });
-    Alert.alert(`${color} — ${label}`, 'Choose an option', buttons);
+    alertDialog(`${color} — ${label}`, 'Choose an option', buttons);
   };
 
   // ─── AI Content ────────────────────────────────────────────────────────────
@@ -614,7 +626,7 @@ export default function ProductWizardScreen({ route, navigation }) {
     const name = newCategoryName.trim();
     if (!name) return;
     if (!typeRoot) {
-      Alert.alert('Setup needed', `No "${t}" root category exists. Run the schema seed in Supabase, then retry.`);
+      alertDialog('Setup needed', `No "${t}" root category exists. Run the schema seed in Supabase, then retry.`);
       return;
     }
     setCreatingCategory(true);
@@ -629,7 +641,7 @@ export default function ProductWizardScreen({ route, navigation }) {
       setShowNewCategory(false);
       setCategorySearch('');
     } catch (err) {
-      Alert.alert('Error', err.message);
+      alertDialog('Error', err.message);
     } finally {
       setCreatingCategory(false);
     }
@@ -650,7 +662,7 @@ export default function ProductWizardScreen({ route, navigation }) {
     const name = (raw || '').trim();
     if (!name) return;
     if (selectedWeights.some((w) => w.toLowerCase() === name.toLowerCase())) {
-      Alert.alert('Already added', `"${name}" is already in the weight list.`);
+      alertDialog('Already added', `"${name}" is already in the weight list.`);
       return;
     }
     setSelectedWeights((prev) => [...prev, name]);
@@ -685,7 +697,7 @@ export default function ProductWizardScreen({ route, navigation }) {
   const saveProduct = async (publish = false) => {
     if (!canSave) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Incomplete', 'Please fill in at least a product name and price.');
+      alertDialog('Incomplete', 'Please fill in at least a product name and price.');
       return;
     }
     setIsSaving(true);
@@ -770,7 +782,7 @@ export default function ProductWizardScreen({ route, navigation }) {
         false
       );
     } catch (err) {
-      Alert.alert('Error', err.message);
+      alertDialog('Error', err.message);
     } finally {
       setIsSaving(false);
     }
@@ -811,17 +823,33 @@ export default function ProductWizardScreen({ route, navigation }) {
               : null;
             return (
               <View key={label} style={{ width: '48%' }} className="mb-2">
-                <Pressable
-                  onPress={() => !isUp && showPhotoPicker(color, label)}
+                <View
                   className="rounded-xl overflow-hidden"
                   style={{ aspectRatio: 3 / 4, borderWidth: 1, borderColor: img ? '#f59e0b' : '#e5e7eb' }}
                 >
                   {uploadedUri ? (
                     <View className="flex-1 relative">
-                      <Image source={{ uri: uploadedUri }} className="w-full h-full" resizeMode="cover" />
+                      <Pressable
+                        onPress={() => setViewerImage(uploadedUri)}
+                        className="flex-1"
+                        accessibilityLabel={`View ${label}`}
+                      >
+                        <Image source={{ uri: uploadedUri }} className="w-full h-full" resizeMode="cover" />
+                      </Pressable>
                       <View className="absolute bottom-0 left-0 right-0 px-2 py-1" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
                         <Text className="text-white text-[10px] font-medium" numberOfLines={1}>{label}</Text>
                       </View>
+                      {!isUp && (
+                        <Pressable
+                          onPress={() => showPhotoPicker(color, label)}
+                          hitSlop={8}
+                          className="absolute top-2 right-2 w-7 h-7 rounded-full items-center justify-center"
+                          style={{ backgroundColor: 'rgba(0,0,0,0.55)' }}
+                          accessibilityLabel={`Change ${label}`}
+                        >
+                          <Ionicons name="camera" size={14} color="#fff" />
+                        </Pressable>
+                      )}
                       {isUp && (
                         <View
                           className="items-center justify-center"
@@ -832,7 +860,11 @@ export default function ProductWizardScreen({ route, navigation }) {
                       )}
                     </View>
                   ) : (
-                    <View className="flex-1 items-center justify-center" style={{ backgroundColor: '#fef7f0' }}>
+                    <Pressable
+                      onPress={() => !isUp && showPhotoPicker(color, label)}
+                      className="flex-1 items-center justify-center"
+                      style={{ backgroundColor: '#fef7f0' }}
+                    >
                       {isUp ? (
                         <ActivityIndicator size="small" color={AMBER_500} />
                       ) : (
@@ -841,9 +873,9 @@ export default function ProductWizardScreen({ route, navigation }) {
                           <Ionicons name="camera" size={16} color="#d97706" />
                         </>
                       )}
-                    </View>
+                    </Pressable>
                   )}
-                </Pressable>
+                </View>
               </View>
             );
           })}
@@ -1521,34 +1553,10 @@ export default function ProductWizardScreen({ route, navigation }) {
         }}
       />
 
-      {/* Fullscreen AI image viewer */}
-      <Modal
-        visible={!!viewerImage}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setViewerImage(null)}
-      >
-        <Pressable
-          className="flex-1 items-center justify-center"
-          style={{ backgroundColor: 'rgba(0,0,0,0.92)' }}
-          onPress={() => setViewerImage(null)}
-        >
-          {viewerImage && (
-            <Image
-              source={{ uri: viewerImage }}
-              style={{ width: '92%', height: '80%' }}
-              resizeMode="contain"
-            />
-          )}
-          <Pressable
-            onPress={() => setViewerImage(null)}
-            className="absolute items-center justify-center"
-            style={{ top: insets.top + 12, right: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.18)' }}
-          >
-            <Ionicons name="close" size={22} color="#ffffff" />
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <ImageZoomModal
+        imageUrl={viewerImage}
+        onClose={() => setViewerImage(null)}
+      />
 
       {/* Sticky Footer */}
       <View

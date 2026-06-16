@@ -41,6 +41,7 @@ export default function LoginScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const setAuth = useAuthStore((s) => s.setAuth);
   const [showPassword, setShowPassword] = useState(false);
+  const [mode, setMode] = useState('admin'); // 'admin' or 'employee'
 
   const { control, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(schema),
@@ -101,8 +102,12 @@ export default function LoginScreen({ navigation }) {
           </View>
 
           <View className="bg-white rounded-3xl p-6 shadow-lg">
-          <Text className="text-2xl font-bold text-gray-900 mb-1">Welcome back</Text>
-          <Text className="text-gray-500 mb-8">Sign in to your account</Text>
+          <Text className="text-2xl font-bold text-gray-900 mb-1">
+            {mode === 'admin' ? 'Admin Login' : 'Employee Login'}
+          </Text>
+          <Text className="text-gray-500 mb-8">
+            {mode === 'admin' ? 'Sign in to the admin console' : 'Sign in to your employee account'}
+          </Text>
 
           {/* Email */}
           <View className="mb-4">
@@ -182,13 +187,26 @@ export default function LoginScreen({ navigation }) {
             )}
           </Pressable>
 
-          {/* Register link */}
-          <View className="flex-row justify-center mt-6">
-            <Text className="text-gray-500">New employee? </Text>
-            <Pressable onPress={() => navigation.navigate('Register')}>
-              <Text className="text-[#6B1A1A] font-semibold">Register here</Text>
-            </Pressable>
+          {/* Switch Mode / Register link */}
+          <View className="mt-6 items-center">
+            <View className="flex-row justify-center mb-4">
+              <Text className="text-gray-500">New employee? </Text>
+              <Pressable onPress={() => navigation.navigate('Register')}>
+                <Text className="text-[#6B1A1A] font-semibold">Register here</Text>
+              </Pressable>
+            </View>
+
+            {mode === 'employee' ? (
+              <Pressable onPress={() => setMode('admin')}>
+                <Text className="text-[#6B1A1A] font-semibold text-base">Login as Admin</Text>
+              </Pressable>
+            ) : (
+              <Pressable onPress={() => setMode('employee')}>
+                <Text className="text-[#6B1A1A] font-semibold text-base">Login as Employee</Text>
+              </Pressable>
+            )}
           </View>
+
           </View>
         </View>
       </ScrollView>

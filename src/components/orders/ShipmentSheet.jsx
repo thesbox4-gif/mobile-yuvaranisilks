@@ -23,6 +23,8 @@ import {
   cancelShipment,
 } from '../../lib/api';
 import { formatPrice } from '../../lib/utils';
+import { alertDialog } from '../../lib/dialog';
+
 
 export default function ShipmentSheet({ visible, onClose, order }) {
   const qc = useQueryClient();
@@ -48,10 +50,10 @@ export default function ShipmentSheet({ visible, onClose, order }) {
       setCouriers(res.couriers ?? []);
       setComputedWeight(res.weight);
       if (!res.couriers?.length) {
-        Alert.alert('No couriers', 'No couriers available for this pincode/weight.');
+        alertDialog('No couriers', 'No couriers available for this pincode/weight.');
       }
     },
-    onError: (err) => Alert.alert('Error', err.message),
+    onError: (err) => alertDialog('Error', err.message),
   });
 
   const createMutation = useMutation({
@@ -65,10 +67,10 @@ export default function ShipmentSheet({ visible, onClose, order }) {
       invalidate();
       setCouriers([]);
       setSelectedCourierId(null);
-      Alert.alert('Success', 'Shipment created — AWB assigned');
+      alertDialog('Success', 'Shipment created — AWB assigned');
       onClose();
     },
-    onError: (err) => Alert.alert('Error', err.message),
+    onError: (err) => alertDialog('Error', err.message),
   });
 
   const openUrlMutation = useMutation({
@@ -86,7 +88,7 @@ export default function ShipmentSheet({ visible, onClose, order }) {
       return res;
     },
     onSuccess: () => invalidate(),
-    onError: (err) => Alert.alert('Error', err.message),
+    onError: (err) => alertDialog('Error', err.message),
   });
 
   const trackMutation = useMutation({
@@ -96,7 +98,7 @@ export default function ShipmentSheet({ visible, onClose, order }) {
       setTrackingEvents(events);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     },
-    onError: (err) => Alert.alert('Error', err.message),
+    onError: (err) => alertDialog('Error', err.message),
   });
 
   const cancelMutation = useMutation({
@@ -106,7 +108,7 @@ export default function ShipmentSheet({ visible, onClose, order }) {
       invalidate();
       onClose();
     },
-    onError: (err) => Alert.alert('Error', err.message),
+    onError: (err) => alertDialog('Error', err.message),
   });
 
   const busy =
@@ -183,7 +185,7 @@ export default function ShipmentSheet({ visible, onClose, order }) {
                     <Pressable
                       disabled={busy}
                       onPress={() =>
-                        Alert.alert('Cancel shipment?', 'This cancels the AWB on Shiprocket.', [
+                        alertDialog('Cancel shipment?', 'This cancels the AWB on Shiprocket.', [
                           { text: 'No', style: 'cancel' },
                           { text: 'Yes', style: 'destructive', onPress: () => cancelMutation.mutate() },
                         ])

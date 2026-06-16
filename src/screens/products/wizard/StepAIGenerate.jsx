@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, ScrollView, Image, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, Pressable, ScrollView, Image, ActivityIndicator,  } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { generateProductImage } from '../../../lib/api';
+import { alertDialog } from '../../../lib/dialog';
+
 
 export default function StepAIGenerate({ wizardData, update }) {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -30,7 +32,7 @@ export default function StepAIGenerate({ wizardData, update }) {
 
   const handleGenerate = async () => {
     if (!primaryImage?.uploadedUrl) {
-      Alert.alert('No image', 'Please upload at least one product image first.');
+      alertDialog('No image', 'Please upload at least one product image first.');
       return;
     }
     setIsGenerating(true);
@@ -46,7 +48,7 @@ export default function StepAIGenerate({ wizardData, update }) {
       setGeneratedUrl(result.url);
       if (result.timing) setLastTiming(result.timing);
     } catch (err) {
-      Alert.alert('Generation Failed', err.message);
+      alertDialog('Generation Failed', err.message);
     } finally {
       setIsGenerating(false);
     }
@@ -61,7 +63,7 @@ export default function StepAIGenerate({ wizardData, update }) {
       return img;
     });
     update({ images: updatedImages });
-    Alert.alert('Applied', 'AI-generated image set as your primary product photo.');
+    alertDialog('Applied', 'AI-generated image set as your primary product photo.');
     setGeneratedUrl(null);
   };
 

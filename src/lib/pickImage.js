@@ -1,26 +1,29 @@
-import { Alert, Platform } from 'react-native';
+import {  Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { alertDialog } from '../lib/dialog';
+import { FAST_PICKER_OPTIONS, prepareImageForUpload } from './prepareImageForUpload';
 
 /** Pick one photo from gallery; returns local `uri` or null if cancelled. */
 export async function pickImageFromGallery() {
   try {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Allow photo library access to add images.');
+      alertDialog('Permission needed', 'Allow photo library access to add images.');
       return null;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      ...FAST_PICKER_OPTIONS,
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 0.85,
+      quality: 0.72,
     });
 
     if (result.canceled || !result.assets?.[0]?.uri) return null;
-    return result.assets[0].uri;
+    const prepared = await prepareImageForUpload(result.assets[0]);
+    return prepared.uri;
   } catch (err) {
-    Alert.alert('Error', err?.message ?? 'Could not open photo library.');
+    alertDialog('Error', err?.message ?? 'Could not open photo library.');
     return null;
   }
 }

@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import {
-  View, Text, Pressable, ScrollView, Image, ActivityIndicator, Alert, Modal, TextInput,
+  View, Text, Pressable, ScrollView, Image, ActivityIndicator, Modal, TextInput,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { uploadImage, generateProductImage } from '../../../lib/api';
 import { COLORS } from '../../../constants';
+import { alertDialog } from '../../../lib/dialog';
+import { FAST_PICKER_OPTIONS, prepareImageForUpload } from '../../../lib/prepareImageForUpload';
 
 export default function Step2Images({ wizardData, update }) {
   const [uploading, setUploading] = useState(null);
@@ -16,30 +18,40 @@ export default function Step2Images({ wizardData, update }) {
   const pickAndUpload = async (color) => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow photo library access.');
+      alertDialog('Permission needed', 'Please allow photo library access.');
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.85,
+      ...FAST_PICKER_OPTIONS,
       allowsEditing: true,
       aspect: [4, 3],
+      quality: 0.72,
     });
 
     if (result.canceled) return;
-    const uri = result.assets[0].uri;
+    const prepared = await prepareImageForUpload(result.assets[0]);
+    const uri = prepared.uri;
 
+    // Show local preview INSTANTLY
+    const newImages = [
+      ...wizardData.images,
+      { color, uri, uploadedUrl: null, isPrimary: wizardData.images.length === 0, aiGenerated: false },
+    ];
+    update({ images: newImages });
+
+    // Upload in background
     setUploading(color);
     try {
       const { url } = await uploadImage(uri);
-      const newImages = [
-        ...wizardData.images,
-        { color, uri, uploadedUrl: url, isPrimary: wizardData.images.length === 0, aiGenerated: false },
-      ];
-      update({ images: newImages });
+      update({
+        images: [
+          ...wizardData.images,
+          { color, uri, uploadedUrl: url, isPrimary: wizardData.images.length === 0, aiGenerated: false },
+        ],
+      });
     } catch (err) {
-      Alert.alert('Upload failed', err.message);
+      alertDialog('Upload failed', err.message);
     } finally {
       setUploading(null);
     }
@@ -60,7 +72,7 @@ export default function Step2Images({ wizardData, update }) {
       );
       update({ images: imgs });
     } catch (err) {
-      Alert.alert('AI generation failed', err.message);
+      alertDialog('AI generation failed', err.message);
     } finally {
       setEnhancing(null);
     }

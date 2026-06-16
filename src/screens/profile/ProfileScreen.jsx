@@ -13,6 +13,8 @@ import { initials, formatPrice } from '../../lib/utils';
 import { confirmDialog } from '../../lib/dialog';
 import * as Haptics from 'expo-haptics';
 import { useRootTabBackToDashboard } from '../../hooks/useHardwareBackHandler';
+import { alertDialog } from '../../lib/dialog';
+
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -35,7 +37,7 @@ export default function ProfileScreen({ navigation }) {
       setAuth(token, { ...user, ...data });
       setEditing(false);
     },
-    onError: (err) => Alert.alert('Error', err.message),
+    onError: (err) => alertDialog('Error', err.message),
   });
 
   const { data: salesData } = useQuery({

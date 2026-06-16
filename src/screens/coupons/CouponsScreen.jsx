@@ -15,6 +15,8 @@ import ScreenHeader from '../../components/ui/ScreenHeader';
 import { formatDate } from '../../lib/utils';
 import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import * as Haptics from 'expo-haptics';
+import { alertDialog } from '../../lib/dialog';
+
 
 const SCOPES = [
   { key: 'all', label: 'All products' },
@@ -42,15 +44,15 @@ function CreateCouponModal({ visible, onClose, onSave, isSaving, categories, pro
 
   const handleSave = () => {
     if (!form.code.trim() || !form.discountPct) {
-      Alert.alert('Required', 'Code and discount % are required.');
+      alertDialog('Required', 'Code and discount % are required.');
       return;
     }
     if (form.scope === 'category' && !form.categoryId) {
-      Alert.alert('Pick a category', 'Choose the category this coupon applies to.');
+      alertDialog('Pick a category', 'Choose the category this coupon applies to.');
       return;
     }
     if (form.scope === 'product' && !form.productId) {
-      Alert.alert('Pick a product', 'Choose the product this coupon applies to.');
+      alertDialog('Pick a product', 'Choose the product this coupon applies to.');
       return;
     }
     onSave({
@@ -273,13 +275,13 @@ export default function CouponsScreen({ navigation }) {
       qc.invalidateQueries({ queryKey: ['coupons'] });
       setShowModal(false);
     },
-    onError: (err) => Alert.alert('Error', err.message),
+    onError: (err) => alertDialog('Error', err.message),
   });
 
   const toggleMutation = useMutation({
     mutationFn: ({ id, active }) => updateCoupon(id, { active }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['coupons'] }),
-    onError: (err) => Alert.alert('Error', err.message),
+    onError: (err) => alertDialog('Error', err.message),
   });
 
   if (isLoading) return <LoadingSpinner />;

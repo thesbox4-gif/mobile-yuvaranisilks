@@ -14,6 +14,8 @@ import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import { prefetchProduct } from '../../lib/queryClient';
 import { PRODUCT_TYPE_CARDS } from '../../constants/productTypes';
 import { useHardwareBackHandler, navigateToDashboard } from '../../hooks/useHardwareBackHandler';
+import { alertDialog } from '../../lib/dialog';
+
 
 const WARM_BG = '#fffaf5';
 const CARD_BG = '#ffffff';
@@ -86,7 +88,7 @@ export default function ProductsScreen({ navigation, route }) {
     try {
       await uploadCategoryImageMutation.mutateAsync({ categoryId: category.id, uri });
     } catch (err) {
-      Alert.alert('Upload failed', err?.message ?? 'Could not save photo');
+      alertDialog('Upload failed', err?.message ?? 'Could not save photo');
     } finally {
       setUploadingCategoryId(null);
     }

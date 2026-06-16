@@ -1,10 +1,9 @@
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
+import useDialogStore from '../store/dialogStore';
 
 // react-native-web's Alert.alert renders via window.alert and ignores the
-// buttons array entirely — so every `onPress` callback (confirm, navigate,
-// sign-out) silently never fires on web. These helpers fall back to the
-// browser's window.confirm / window.alert there and use the native Alert on
-// devices, so confirmation flows behave the same on every platform.
+// buttons array entirely. These helpers fall back to the browser's 
+// window.confirm / window.alert there and use our custom GlobalDialog on devices.
 
 export function confirmDialog({
   title,
@@ -21,23 +20,49 @@ export function confirmDialog({
     else onCancel?.();
     return;
   }
-  Alert.alert(title, message, [
-    { text: cancelText, style: 'cancel', onPress: onCancel },
-    {
-      text: confirmText,
-      style: destructive ? 'destructive' : 'default',
-      onPress: onConfirm,
-    },
-  ]);
+  useDialogStore.getState().showDialog({
+    title,
+    message,
+    buttons: [
+      { text: cancelText, style: 'cancel', onPress: onCancel },
+      {
+        text: confirmText,
+        style: destructive ? 'destructive' : 'default',
+        onPress: onConfirm,
+      },
+    ]
+  });
 }
 
-// Single-acknowledgement notice. window.alert blocks until dismissed, so an
-// `onClose` callback (e.g. navigate away) runs reliably afterwards on web too.
+// Single-acknowledgement notice.
 export function notifyDialog({ title, message = '', onClose }) {
   if (Platform.OS === 'web') {
     window.alert([title, message].filter(Boolean).join('\n\n'));
     onClose?.();
     return;
   }
-  Alert.alert(title, message, [{ text: 'OK', onPress: onClose }]);
+  useDialogStore.getState().showDialog({
+    title,
+    message,
+    buttons: [{ text: 'OK', onPress: onClose }]
+  });
+}
+
+// Drop-in replacement for Alert.alert
+export function alertDialog(title, message, buttons) {
+  if (Platform.OS === 'web') {
+    const isConfirm = buttons && buttons.length > 1;
+    if (isConfirm) {
+      const ok = window.confirm([title, message].filter(Boolean).join('\n\n'));
+      const confirmBtn = buttons.find(b => b.style !== 'cancel') || buttons[1];
+      const cancelBtn = buttons.find(b => b.style === 'cancel') || buttons[0];
+      if (ok && confirmBtn?.onPress) confirmBtn.onPress();
+      else if (!ok && cancelBtn?.onPress) cancelBtn.onPress();
+    } else {
+      window.alert([title, message].filter(Boolean).join('\n\n'));
+      if (buttons && buttons[0]?.onPress) buttons[0].onPress();
+    }
+    return;
+  }
+  useDialogStore.getState().showDialog({ title, message, buttons });
 }

@@ -14,6 +14,8 @@ import { formatDate, initials } from '../../lib/utils';
 import { confirmDialog } from '../../lib/dialog';
 import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import * as Haptics from 'expo-haptics';
+import { alertDialog } from '../../lib/dialog';
+
 
 const TABS = ['Pending', 'Active'];
 
@@ -53,7 +55,7 @@ export default function EmployeesScreen({ navigation }) {
       // so an approved employee leaves Pending and shows under Active immediately.
       qc.invalidateQueries({ queryKey: ['employees'], refetchType: 'all' });
     },
-    onError: (err) => Alert.alert('Error', err.message),
+    onError: (err) => alertDialog('Error', err.message),
   });
 
   const handleAction = (emp, action) => {

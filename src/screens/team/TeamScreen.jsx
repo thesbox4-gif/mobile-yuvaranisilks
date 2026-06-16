@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, Pressable, FlatList, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, Pressable, FlatList, ActivityIndicator,  } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,8 @@ import { initials } from '../../lib/utils';
 import { confirmDialog } from '../../lib/dialog';
 import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import { useHardwareBackHandler } from '../../hooks/useHardwareBackHandler';
+import { alertDialog } from '../../lib/dialog';
+
 
 const TABS = [
   { key: 'active', label: 'Active' },
@@ -92,7 +94,7 @@ export default function TeamScreen({ navigation, route }) {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
     },
     onError: (err) => {
-      Alert.alert('Error', err.message || 'Action failed');
+      alertDialog('Error', err.message || 'Action failed');
     },
   });
 

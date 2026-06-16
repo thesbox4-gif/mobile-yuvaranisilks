@@ -15,6 +15,8 @@ import ScreenHeader from '../../components/ui/ScreenHeader';
 import { confirmDialog } from '../../lib/dialog';
 import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import * as Haptics from 'expo-haptics';
+import { alertDialog } from '../../lib/dialog';
+
 
 function CategoryModal({ visible, onClose, onSave, isSaving, parents, editing }) {
   const [name, setName] = useState('');
@@ -50,7 +52,7 @@ function CategoryModal({ visible, onClose, onSave, isSaving, parents, editing })
 
   const handleSave = () => {
     if (!name.trim()) {
-      Alert.alert('Required', 'Category name is required.');
+      alertDialog('Required', 'Category name is required.');
       return;
     }
     onSave({
@@ -209,7 +211,7 @@ export default function CategoriesScreen({ navigation }) {
       setShowModal(false);
       setEditingCategory(null);
     },
-    onError: (err) => Alert.alert('Error', err.message),
+    onError: (err) => alertDialog('Error', err.message),
   });
 
   const quickPhotoMutation = useMutation({
@@ -222,7 +224,7 @@ export default function CategoriesScreen({ navigation }) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       qc.invalidateQueries({ queryKey: ['categories'] });
     },
-    onError: (err) => Alert.alert('Error', err.message),
+    onError: (err) => alertDialog('Error', err.message),
   });
 
   const handleQuickPhoto = async (cat) => {
@@ -253,7 +255,7 @@ export default function CategoriesScreen({ navigation }) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       qc.invalidateQueries({ queryKey: ['categories'] });
     },
-    onError: (err) => Alert.alert('Error', err.message),
+    onError: (err) => alertDialog('Error', err.message),
   });
 
   const confirmDelete = (cat) => {

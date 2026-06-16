@@ -9,13 +9,18 @@ import AppNavigator from './src/navigation/AppNavigator';
 import BrandSplash from './src/components/brand/BrandSplash';
 import { navigationRef } from './src/navigation/navigationRef';
 import useAuthStore from './src/store/authStore';
-import { registerPushToken } from './src/lib/notifications';
+import { registerPushToken, setupNotificationListeners } from './src/lib/notifications';
+import GlobalDialog from './src/components/ui/GlobalDialog';
 
 function PushRegistrar() {
   const token = useAuthStore((s) => s.token);
+
   useEffect(() => {
-    if (token) registerPushToken();
+    if (!token) return undefined;
+    registerPushToken();
+    return setupNotificationListeners();
   }, [token]);
+
   return null;
 }
 
@@ -43,6 +48,7 @@ export default function App() {
           <StatusBar style="dark" />
           <PushRegistrar />
           <AppNavigator />
+          <GlobalDialog />
         </NavigationContainer>
       </SafeAreaProvider>
     </QueryClientProvider>

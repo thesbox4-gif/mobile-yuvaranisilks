@@ -4,6 +4,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { generateContent } from '../../../lib/api';
+import { alertDialog } from '../../../lib/dialog';
+
 
 export default function StepContent({ wizardData, update }) {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -11,7 +13,7 @@ export default function StepContent({ wizardData, update }) {
 
   const handleGenerate = async () => {
     if (!wizardData.type) {
-      Alert.alert('Missing info', 'Please select a product type & category first.');
+      alertDialog('Missing info', 'Please select a product type & category first.');
       return;
     }
     setIsGenerating(true);
@@ -25,7 +27,7 @@ export default function StepContent({ wizardData, update }) {
       });
       update({ content: { title: result.title, description: result.description } });
     } catch (err) {
-      Alert.alert('AI Error', err.message);
+      alertDialog('AI Error', err.message);
     } finally {
       setIsGenerating(false);
     }

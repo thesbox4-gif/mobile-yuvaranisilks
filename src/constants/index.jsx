@@ -3,7 +3,7 @@ import Constants from 'expo-constants';
 export const API_URL =
   process.env.EXPO_PUBLIC_API_URL ??
   Constants.expoConfig?.extra?.apiUrl ??
-  'http://192.168.31.166:4000/api';
+  'https://backendapis.thesboxx.com';
 
 export const VALID_ORDER_TRANSITIONS = {
   placed: ['confirmed', 'cancelled'],

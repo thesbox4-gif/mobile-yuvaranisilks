@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, ScrollView, Image, ActivityIndicator } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { uploadImage } from '../../../lib/api';
+import { alertDialog } from '../../../lib/dialog';
+import { buildPickerOptions, prepareImageForUpload } from '../../../lib/prepareImageForUpload';
 
 const PHOTO_BLOCKS = {
   saree: [
@@ -48,15 +50,15 @@ export default function StepPhotos({ wizardData, update }) {
     const isCamera = source === 'camera';
     const hasPermission = await requestPermissions(isCamera ? 'camera' : 'library');
     if (!hasPermission) {
-      Alert.alert('Permission needed', `Please allow ${isCamera ? 'camera' : 'photo library'} access.`);
+      alertDialog('Permission needed', `Please allow ${isCamera ? 'camera' : 'photo library'} access.`);
       return;
     }
 
     const options = {
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.85,
+      ...buildPickerOptions(),
       allowsEditing: true,
       aspect: [3, 4],
+      quality: 0.72,
     };
 
     const result = isCamera
@@ -65,19 +67,29 @@ export default function StepPhotos({ wizardData, update }) {
 
     if (result.canceled) return;
 
-    const uri = result.assets[0].uri;
-    setUploading(label);
+    const prepared = await prepareImageForUpload(result.assets[0]);
+    const uri = prepared.uri;
 
+    // Show local preview INSTANTLY
+    const isPrimary = images.length === 0;
+    const newImages = [
+      ...images.filter((img) => img.label !== label),
+      { label, uri, uploadedUrl: null, isPrimary },
+    ];
+    update({ images: newImages });
+
+    // Upload in background
+    setUploading(label);
     try {
       const { url } = await uploadImage(uri);
-      const isPrimary = images.length === 0;
-      const newImages = [
-        ...images.filter((img) => img.label !== label),
-        { label, uri, uploadedUrl: url, isPrimary },
-      ];
-      update({ images: newImages });
+      update({
+        images: [
+          ...images.filter((img) => img.label !== label),
+          { label, uri, uploadedUrl: url, isPrimary },
+        ],
+      });
     } catch (err) {
-      Alert.alert('Upload failed', err.message);
+      alertDialog('Upload failed', err.message);
     } finally {
       setUploading(null);
     }
@@ -99,9 +111,9 @@ export default function StepPhotos({ wizardData, update }) {
     const cancelIndex = options.length - 1;
     const destructiveIndex = existing ? 2 : undefined;
 
-    Alert.alert(label, 'Select an option', [
-      { text: 'Take Photo', onPress: () => pickImage(label, 'camera') },
-      { text: 'Choose from Gallery', onPress: () => pickImage(label, 'gallery') },
+    alertDialog(label, 'Select an option', [
+      { text: 'Take Photo', onPress: () => setTimeout(() => pickImage(label, 'camera'), 300) },
+      { text: 'Choose from Gallery', onPress: () => setTimeout(() => pickImage(label, 'gallery'), 300) },
       ...(existing ? [{ text: 'Remove Photo', style: 'destructive', onPress: () => removeImage(label) }] : []),
       { text: 'Cancel', style: 'cancel' },
     ]);
@@ -141,6 +153,11 @@ export default function StepPhotos({ wizardData, update }) {
                   {img.isPrimary && (
                     <View className="absolute top-2 left-2 bg-amber-500 px-2 py-0.5 rounded-full">
                       <Text className="text-white text-[10px] font-bold">PRIMARY</Text>
+                    </View>
+                  )}
+                  {isUploading && (
+                    <View className="absolute inset-0 bg-black/30 items-center justify-center">
+                      <ActivityIndicator size="small" color="#f59e0b" />
                     </View>
                   )}
                 </View>

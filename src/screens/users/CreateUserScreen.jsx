@@ -9,6 +9,8 @@ import * as Haptics from 'expo-haptics';
 import ScreenHeader from '../../components/ui/ScreenHeader';
 import { createUser } from '../../lib/api';
 import { notifyDialog } from '../../lib/dialog';
+import { alertDialog } from '../../lib/dialog';
+
 
 const ROLES = [
   { value: 'customer', label: 'Customer', icon: 'person', desc: 'Shops on the store' },
@@ -54,7 +56,7 @@ export default function CreateUserScreen({ route, navigation }) {
     },
     onError: (err) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Could not create user', err.message);
+      alertDialog('Could not create user', err.message);
     },
   });
 
@@ -64,7 +66,7 @@ export default function CreateUserScreen({ route, navigation }) {
 
   const handleSubmit = () => {
     if (!canSubmit) {
-      Alert.alert('Incomplete', 'Enter a name, valid email and a password of at least 6 characters.');
+      alertDialog('Incomplete', 'Enter a name, valid email and a password of at least 6 characters.');
       return;
     }
     mutation.mutate();
