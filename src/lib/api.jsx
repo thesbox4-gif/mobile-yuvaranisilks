@@ -85,7 +85,9 @@ async function apiFetch(path, options = {}, _retry = false) {
       const newToken = await refreshSession();
       if (newToken) return apiFetch(path, options, true);
     }
-    useAuthStore.getState().clearAuth();
+    if (useAuthStore.getState().token) {
+      useAuthStore.getState().clearAuth();
+    }
     throw new Error('Session expired. Please log in again.');
   }
 

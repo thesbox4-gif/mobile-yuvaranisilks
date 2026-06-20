@@ -52,6 +52,7 @@ export default function ProductDetailScreen({ route, navigation }) {
   const [sellVariant, setSellVariant] = useState(null);
   const [sellQty, setSellQty] = useState(1);
   const [sellCustomer, setSellCustomer] = useState({ name: '', phone: '' });
+  const [sellAmount, setSellAmount] = useState('');
   const [selectedColor, setSelectedColor] = useState(null);
   const [zoomUrl, setZoomUrl] = useState(null);
   const [zoomScale, setZoomScale] = useState(1);
@@ -119,12 +120,13 @@ export default function ProductDetailScreen({ route, navigation }) {
   });
 
   const sellMutation = useMutation({
-    mutationFn: ({ variantId, quantity, customerName, customerPhone }) =>
+    mutationFn: ({ variantId, quantity, customerName, customerPhone, amount }) =>
       recordSale({
         variant_id: variantId,
         quantity,
         customer_name: customerName,
         customer_phone: customerPhone,
+        amount,
       }),
     onSuccess: () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -141,6 +143,7 @@ export default function ProductDetailScreen({ route, navigation }) {
     setSellVariant(variant);
     setSellQty(1);
     setSellCustomer({ name: '', phone: '' });
+    setSellAmount('');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
@@ -749,6 +752,17 @@ export default function ProductDetailScreen({ route, navigation }) {
               onChangeText={(v) => setSellCustomer((c) => ({ ...c, phone: v }))}
             />
 
+            <Text className="text-sm font-medium text-gray-700 mb-2">Amount sold (₹)</Text>
+            <TextInput
+              className="rounded-xl px-3 py-3 text-sm mb-4"
+              style={{ backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#e5e7eb', color: '#1f2937' }}
+              placeholder="Enter sale amount"
+              placeholderTextColor="#9ca3af"
+              keyboardType="decimal-pad"
+              value={sellAmount}
+              onChangeText={setSellAmount}
+            />
+
             <Text className="text-sm font-medium text-gray-700 mb-2">Quantity sold</Text>
             <View className="flex-row items-center justify-center mb-5">
               <Pressable
@@ -779,14 +793,20 @@ export default function ProductDetailScreen({ route, navigation }) {
                 <Text className="text-gray-600 font-medium">Cancel</Text>
               </Pressable>
               <Pressable
-                onPress={() =>
+                onPress={() => {
+                  const amount = Number.parseFloat(sellAmount);
+                  if (!sellAmount.trim() || Number.isNaN(amount) || amount <= 0) {
+                    openConfirm('Invalid amount', 'Please enter a valid sale amount.', [{ label: 'OK' }]);
+                    return;
+                  }
                   sellMutation.mutate({
                     variantId: sellVariant.id,
                     quantity: sellQty,
                     customerName: sellCustomer.name,
                     customerPhone: sellCustomer.phone,
-                  })
-                }
+                    amount,
+                  });
+                }}
                 disabled={sellMutation.isPending}
                 className="flex-1 bg-amber-500 rounded-xl py-3.5 items-center active:bg-amber-600"
               >

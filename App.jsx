@@ -10,6 +10,7 @@ import BrandSplash from './src/components/brand/BrandSplash';
 import { navigationRef } from './src/navigation/navigationRef';
 import useAuthStore from './src/store/authStore';
 import { registerPushToken, setupNotificationListeners } from './src/lib/notifications';
+import { runAfterAuthTransition } from './src/lib/authSession';
 import GlobalDialog from './src/components/ui/GlobalDialog';
 
 function PushRegistrar() {
@@ -17,15 +18,23 @@ function PushRegistrar() {
 
   useEffect(() => {
     if (!token) return undefined;
-    registerPushToken();
-    
-    let cleanupFn;
-    setupNotificationListeners().then((cleanup) => {
-      cleanupFn = cleanup;
+
+    let cancelled = false;
+    let removeListeners = () => {};
+
+    runAfterAuthTransition(() => {
+      if (cancelled) return;
+      registerPushToken();
     });
-    
+
+    setupNotificationListeners().then((cleanup) => {
+      if (cancelled) cleanup?.();
+      else removeListeners = cleanup || (() => {});
+    });
+
     return () => {
-      if (cleanupFn) cleanupFn();
+      cancelled = true;
+      removeListeners();
     };
   }, [token]);
 

@@ -20,17 +20,17 @@ export async function configureNotificationHandler() {
   if (handlerConfigured || isExpoGo()) return;
 
   const Notifications = await getNotificationsModule();
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: true,
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
       shouldShowBanner: true,
       shouldShowList: true,
-    }),
-  });
-  handlerConfigured = true;
-}
+      }),
+    });
+    handlerConfigured = true;
+  }
 
 export async function registerPushToken() {
   if (isExpoGo()) return;

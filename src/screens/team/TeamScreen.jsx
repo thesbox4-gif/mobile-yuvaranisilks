@@ -17,13 +17,19 @@ const TABS = [
   { key: 'pending', label: 'Pending' },
 ];
 
+const CARD_SHADOW = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.05,
+  shadowRadius: 2,
+  elevation: 2,
+};
+
+const TAB_SHADOW = CARD_SHADOW;
+
 function EmployeeCard({ employee, isPending, onApprove, onReject, onPress }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={isPending}
-      className="bg-white rounded-2xl shadow-sm mx-4 mb-3 p-4 flex-row items-center active:opacity-90"
-    >
+  const content = (
+    <>
       <View className="w-12 h-12 bg-rose-100 rounded-full items-center justify-center">
         <Text className="text-rose-700 font-bold text-base">{initials(employee.name)}</Text>
       </View>
@@ -34,16 +40,16 @@ function EmployeeCard({ employee, isPending, onApprove, onReject, onPress }) {
       </View>
 
       {isPending ? (
-        <View className="flex-row gap-2">
+        <View className="flex-row" style={{ gap: 8 }}>
           <Pressable
             onPress={() => onApprove(employee)}
-            className="w-9 h-9 bg-green-50 rounded-full items-center justify-center active:bg-green-100"
+            className="w-9 h-9 bg-green-50 rounded-full items-center justify-center"
           >
             <Ionicons name="checkmark" size={18} color="#16a34a" />
           </Pressable>
           <Pressable
             onPress={() => onReject(employee)}
-            className="w-9 h-9 bg-red-50 rounded-full items-center justify-center active:bg-red-100"
+            className="w-9 h-9 bg-red-50 rounded-full items-center justify-center"
           >
             <Ionicons name="close" size={18} color="#dc2626" />
           </Pressable>
@@ -55,9 +61,21 @@ function EmployeeCard({ employee, isPending, onApprove, onReject, onPress }) {
               {employee.role === 'admin' ? 'Admin' : 'Active'}
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={16} color="#d1d5db" className="ml-2" />
+          <Ionicons name="chevron-forward" size={16} color="#d1d5db" style={{ marginLeft: 8 }} />
         </View>
       )}
+    </>
+  );
+
+  const cardClass = 'bg-white rounded-2xl mx-4 mb-3 p-4 flex-row items-center';
+
+  if (isPending) {
+    return <View className={cardClass} style={CARD_SHADOW}>{content}</View>;
+  }
+
+  return (
+    <Pressable onPress={onPress} className={cardClass} style={CARD_SHADOW}>
+      {content}
     </Pressable>
   );
 }
@@ -157,8 +175,9 @@ export default function TeamScreen({ navigation, route }) {
             key={tab.key}
             onPress={() => setActiveTab(tab.key)}
             className={`flex-1 py-2.5 rounded-lg items-center ${
-              activeTab === tab.key ? 'bg-white shadow-sm' : ''
+              activeTab === tab.key ? 'bg-white' : ''
             }`}
+            style={activeTab === tab.key ? TAB_SHADOW : undefined}
           >
             <Text
               className={`text-sm font-semibold ${

@@ -6,8 +6,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import { updateMe, logout, getOfflineSales } from '../../lib/api';
+import { updateMe, getOfflineSales } from '../../lib/api';
 import useAuthStore from '../../store/authStore';
+import { signOut } from '../../lib/authSession';
 import ScreenHeader from '../../components/ui/ScreenHeader';
 import { initials, formatPrice } from '../../lib/utils';
 import { confirmDialog } from '../../lib/dialog';
@@ -18,7 +19,7 @@ import { alertDialog } from '../../lib/dialog';
 
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { user, setAuth, clearAuth, token, viewMode, setViewMode } = useAuthStore();
+  const { user, setAuth, token, viewMode, setViewMode } = useAuthStore();
 
   useRootTabBackToDashboard(navigation);
   const [name, setName] = useState(user?.name ?? '');
@@ -55,10 +56,7 @@ export default function ProfileScreen({ navigation }) {
   );
 
   const handleSignOut = () => {
-    // Revoke the server session with the still-valid token, then clear local
-    // auth so AppNavigator immediately swaps back to the Login stack.
-    logout(token).catch(() => { });
-    clearAuth();
+    signOut();
   };
 
   const handleLogout = () => {

@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { Ionicons } from '@expo/vector-icons';
 import { login } from '../../lib/api';
 import useAuthStore from '../../store/authStore';
-import { registerPushToken } from '../../lib/notifications';
+import { queryClient } from '../../lib/queryClient';
 import { notifyDialog } from '../../lib/dialog';
 
 const schema = z.object({
@@ -72,8 +72,8 @@ export default function LoginScreen({ navigation }) {
         return;
       }
 
+      queryClient.clear();
       setAuth(data.token, data.user, data.refreshToken);
-      await registerPushToken();
     } catch (err) {
       notifyDialog({ title: 'Could not sign in', message: friendlyLoginError(err.message) });
     }

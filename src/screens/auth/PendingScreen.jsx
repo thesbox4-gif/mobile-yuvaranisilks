@@ -5,12 +5,12 @@ import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { getMe } from '../../lib/api';
 import useAuthStore from '../../store/authStore';
-import { registerPushToken } from '../../lib/notifications';
+import { signOut } from '../../lib/authSession';
 import { notifyDialog } from '../../lib/dialog';
 
 export default function PendingScreen() {
   const insets = useSafeAreaInsets();
-  const { user, setAuth, clearAuth } = useAuthStore();
+  const { user, setAuth } = useAuthStore();
   const [countdown, setCountdown] = useState(30);
 
   const { data } = useQuery({
@@ -23,12 +23,11 @@ export default function PendingScreen() {
   useEffect(() => {
     if (data?.employee_status === 'approved') {
       setAuth(useAuthStore.getState().token, data);
-      registerPushToken();
     } else if (data?.employee_status === 'rejected') {
       notifyDialog({
         title: 'Application rejected',
         message: 'Your employee application was rejected. Please contact an admin for help.',
-        onClose: clearAuth,
+        onClose: signOut,
       });
     }
   }, [data]);
@@ -82,7 +81,7 @@ export default function PendingScreen() {
       </View>
 
       <Pressable
-        onPress={clearAuth}
+        onPress={signOut}
         className="mt-10 px-6 py-3 rounded-xl active:bg-red-50"
       >
         <Text className="text-red-500 font-medium text-sm">Sign Out</Text>

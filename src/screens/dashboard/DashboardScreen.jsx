@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, Pressable, ScrollView, ActivityIndicator, RefreshControl, Modal, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
@@ -171,6 +171,14 @@ export default function DashboardScreen({ navigation }) {
   const viewMode = useAuthStore((s) => s.viewMode);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedSubCategory, setSelectedSubCategory] = useState(null);
+
+  const handleCategoryModalBack = useCallback(() => {
+    if (selectedSubCategory) {
+      setSelectedSubCategory(null);
+    } else if (selectedCategory) {
+      setSelectedCategory(null);
+    }
+  }, [selectedCategory, selectedSubCategory]);
 
   const role = viewMode === 'user' ? 'customer' : (user?.role || 'customer');
   const isAdmin = role === 'admin';
@@ -543,23 +551,14 @@ export default function DashboardScreen({ navigation }) {
       <Modal
         visible={!!selectedCategory}
         animationType="slide"
-        onRequestClose={() => {
-          setSelectedSubCategory(null);
-          setSelectedCategory(null);
-        }}
+        onRequestClose={handleCategoryModalBack}
       >
         <View className="flex-1 bg-gray-50" style={{ paddingTop: insets.top }}>
           {/* Modal Header */}
           <View className="flex-row items-center justify-between px-4 py-4 bg-white border-b border-gray-100">
             <View className="flex-row items-center">
               <Pressable
-                onPress={() => {
-                  if (selectedSubCategory) {
-                    setSelectedSubCategory(null);
-                  } else {
-                    setSelectedCategory(null);
-                  }
-                }}
+                onPress={handleCategoryModalBack}
                 className="mr-3 w-9 h-9 items-center justify-center rounded-full bg-gray-100 active:bg-gray-200"
               >
                 <Ionicons name="arrow-back" size={20} color="#374151" />

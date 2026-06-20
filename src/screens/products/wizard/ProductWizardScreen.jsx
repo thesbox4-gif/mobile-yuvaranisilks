@@ -171,6 +171,8 @@ export default function ProductWizardScreen({ route, navigation }) {
     images: [],          // [{ color, label, uri, uploadedUrl, generatedUrl, existing }]
     stock: {},           // saree: {color:n}  dress/jewellery: {color:{sub:n}}
     content: { title: '', description: '' },
+    barcode: '',
+    block: '',
     pricing: { basePrice: 0, discountPct: 0, couponCode: '', couponDiscount: 0, tags: '' },
   });
 
@@ -301,6 +303,8 @@ export default function ProductWizardScreen({ route, navigation }) {
       images: mappedImages,
       stock,
       content: { title: editProduct.title || '', description: editProduct.description || '' },
+      barcode: editProduct.barcode || '',
+      block: editProduct.block || '',
       pricing: {
         basePrice: Number(editProduct.base_price) || 0,
         discountPct: Number(editProduct.discount_pct) || 0,
@@ -711,6 +715,8 @@ export default function ProductWizardScreen({ route, navigation }) {
         discount_pct: Number(wizardData.pricing.discountPct) || 0,
         coupon_code: wizardData.pricing.couponCode || undefined,
         coupon_disc: wizardData.pricing.couponDiscount || undefined,
+        barcode: wizardData.barcode.trim() || undefined,
+        block: wizardData.block.trim() || undefined,
       };
 
       const product = mode === 'edit' && productId
@@ -1264,6 +1270,34 @@ export default function ProductWizardScreen({ route, navigation }) {
               onChangeText={(v) => update({ content: { ...wizardData.content, description: v } })}
               multiline
               textAlignVertical="top"
+            />
+          </View>
+
+          <View className="mb-4">
+            <Text className="text-sm font-medium mb-1.5" style={{ color: '#78350f' }}>Barcode</Text>
+            <TextInput
+              className="rounded-xl px-4 py-3 text-base"
+              style={{ backgroundColor: '#fef7f0', borderWidth: 1, borderColor: SECTION_BORDER, color: '#1f2937' }}
+              placeholder="Scan or enter barcode"
+              placeholderTextColor="#a16207"
+              value={wizardData.barcode}
+              onChangeText={(v) => update({ barcode: v })}
+              autoCapitalize="characters"
+              autoCorrect={false}
+            />
+          </View>
+
+          <View className="mb-4">
+            <Text className="text-sm font-medium mb-1.5" style={{ color: '#78350f' }}>Block</Text>
+            <TextInput
+              className="rounded-xl px-4 py-3 text-base"
+              style={{ backgroundColor: '#fef7f0', borderWidth: 1, borderColor: SECTION_BORDER, color: '#1f2937' }}
+              placeholder="Enter block"
+              placeholderTextColor="#a16207"
+              value={wizardData.block}
+              onChangeText={(v) => update({ block: v })}
+              autoCapitalize="characters"
+              autoCorrect={false}
             />
           </View>
 
