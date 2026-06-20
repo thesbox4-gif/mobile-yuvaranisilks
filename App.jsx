@@ -18,7 +18,15 @@ function PushRegistrar() {
   useEffect(() => {
     if (!token) return undefined;
     registerPushToken();
-    return setupNotificationListeners();
+    
+    let cleanupFn;
+    setupNotificationListeners().then((cleanup) => {
+      cleanupFn = cleanup;
+    });
+    
+    return () => {
+      if (cleanupFn) cleanupFn();
+    };
   }, [token]);
 
   return null;

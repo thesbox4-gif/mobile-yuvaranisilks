@@ -237,6 +237,8 @@ export default function ProductDetailScreen({ route, navigation }) {
   const zoomPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => !!zoomUrlRef.current,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
       onMoveShouldSetPanResponder: () => !!zoomUrlRef.current,
       onPanResponderGrant: (evt) => {
         const touches = evt.nativeEvent.touches;
@@ -249,38 +251,62 @@ export default function ProductDetailScreen({ route, navigation }) {
           panStartRef.current = null;
           return;
         }
-        if (touches.length === 1 && zoomScaleRef.current > 1) {
+        if (touches.length === 1) {
           isPinchingRef.current = false;
-          panStartRef.current = {
-            x: touches[0].pageX,
-            y: touches[0].pageY,
-            ox: zoomOffsetRef.current.x,
-            oy: zoomOffsetRef.current.y,
-          };
+          pinchStartDistanceRef.current = null;
+          if (zoomScaleRef.current > 1) {
+            panStartRef.current = {
+              x: touches[0].pageX,
+              y: touches[0].pageY,
+              ox: zoomOffsetRef.current.x,
+              oy: zoomOffsetRef.current.y,
+            };
+          }
         }
       },
       onPanResponderMove: (evt) => {
         const touches = evt.nativeEvent.touches;
         if (touches.length === 2) {
-          isPinchingRef.current = true;
+          if (!isPinchingRef.current || !pinchStartDistanceRef.current) {
+            isPinchingRef.current = true;
+            pinchStartDistanceRef.current = pinchDistance(touches);
+            pinchStartScaleRef.current = zoomScaleRef.current;
+            panStartRef.current = null;
+            return;
+          }
+
           const distance = pinchDistance(touches);
           const startDistance = pinchStartDistanceRef.current;
           if (!distance || !startDistance) return;
-          setZoomScaleClamped(pinchStartScaleRef.current * (distance / startDistance));
+
+          setZoomScaleClamped(
+            pinchStartScaleRef.current * (distance / startDistance)
+          );
           return;
         }
-        if (
-          touches.length === 1
-          && panStartRef.current
-          && zoomScaleRef.current > 1
-          && !isPinchingRef.current
-        ) {
-          const dx = touches[0].pageX - panStartRef.current.x;
-          const dy = touches[0].pageY - panStartRef.current.y;
-          setZoomOffset(clampZoomOffset({
-            x: panStartRef.current.ox + dx,
-            y: panStartRef.current.oy + dy,
-          }, zoomScaleRef.current));
+        if (touches.length === 1) {
+          if (isPinchingRef.current) {
+            isPinchingRef.current = false;
+            pinchStartDistanceRef.current = null;
+            panStartRef.current = null;
+          }
+          if (zoomScaleRef.current > 1) {
+            if (!panStartRef.current) {
+              panStartRef.current = {
+                x: touches[0].pageX,
+                y: touches[0].pageY,
+                ox: zoomOffsetRef.current.x,
+                oy: zoomOffsetRef.current.y,
+              };
+              return;
+            }
+            const dx = touches[0].pageX - panStartRef.current.x;
+            const dy = touches[0].pageY - panStartRef.current.y;
+            setZoomOffset(clampZoomOffset({
+              x: panStartRef.current.ox + dx,
+              y: panStartRef.current.oy + dy,
+            }, zoomScaleRef.current));
+          }
         }
       },
       onPanResponderRelease: () => {

@@ -1,6 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
-  View, Text, Image, Pressable, Modal, Dimensions, PanResponder,
+  View, Text, Pressable, Modal, Dimensions, PanResponder, Animated, Easing,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,10 @@ import { Ionicons } from '@expo/vector-icons';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
+
+function clampScale(value) {
+  return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, value));
+}
 
 function clampZoomOffset(offset, scale) {
   if (scale <= 1) return { x: 0, y: 0 };
@@ -32,109 +36,215 @@ export default function ImageZoomModal({ imageUrl, onClose }) {
   const lastTapRef = useRef(0);
   const pinchStartDistanceRef = useRef(null);
   const pinchStartScaleRef = useRef(1);
-  const zoomScaleRef = useRef(1);
-  const zoomOffsetRef = useRef({ x: 0, y: 0 });
   const panStartRef = useRef(null);
   const isPinchingRef = useRef(false);
+  const movedDuringGestureRef = useRef(false);
   const imageUrlRef = useRef(null);
 
-  const [zoomScale, setZoomScale] = useState(1);
-  const [zoomOffset, setZoomOffset] = useState({ x: 0, y: 0 });
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const translateXAnim = useRef(new Animated.Value(0)).current;
+  const translateYAnim = useRef(new Animated.Value(0)).current;
 
-  zoomScaleRef.current = zoomScale;
-  zoomOffsetRef.current = zoomOffset;
+  const scaleRef = useRef(1);
+  const offsetRef = useRef({ x: 0, y: 0 });
+
+  const [displayScale, setDisplayScale] = useState(100);
+
   imageUrlRef.current = imageUrl;
 
-  const setZoomScaleClamped = (nextScale) => {
-    const scale = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Number(nextScale.toFixed(3))));
-    setZoomScale(scale);
-    if (scale <= 1) {
-      setZoomOffset({ x: 0, y: 0 });
+  const applyTransform = (nextScale, nextOffset, { animate = false } = {}) => {
+    const scale = clampScale(nextScale);
+    const offset = scale <= 1 ? { x: 0, y: 0 } : clampZoomOffset(nextOffset, scale);
+
+    scaleRef.current = scale;
+    offsetRef.current = offset;
+
+    if (animate) {
+      Animated.parallel([
+        Animated.timing(scaleAnim, {
+          toValue: scale,
+          duration: 180,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateXAnim, {
+          toValue: offset.x,
+          duration: 180,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateYAnim, {
+          toValue: offset.y,
+          duration: 180,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
     } else {
-      setZoomOffset((o) => clampZoomOffset(o, scale));
+      scaleAnim.setValue(scale);
+      translateXAnim.setValue(offset.x);
+      translateYAnim.setValue(offset.y);
     }
   };
 
+  const syncDisplayScale = () => {
+    setDisplayScale(Math.round(scaleRef.current * 100));
+  };
+
+  const resetTransform = () => {
+    scaleRef.current = 1;
+    offsetRef.current = { x: 0, y: 0 };
+    scaleAnim.setValue(1);
+    translateXAnim.setValue(0);
+    translateYAnim.setValue(0);
+    setDisplayScale(100);
+  };
+
+  useEffect(() => {
+    if (imageUrl) resetTransform();
+  }, [imageUrl]);
+
   const handleClose = () => {
-    setZoomScale(1);
-    setZoomOffset({ x: 0, y: 0 });
+    resetTransform();
     onClose();
+  };
+
+  const setZoomScaleClamped = (nextScale, { animate = true } = {}) => {
+    applyTransform(nextScale, offsetRef.current, { animate });
+    if (scaleRef.current < 1) {
+  applyTransform(1, { x: 0, y: 0 }, { animate: true });
+}
+
+syncDisplayScale();
   };
 
   const handleZoomTap = () => {
     const now = Date.now();
     if (now - lastTapRef.current < 300) {
-      if (zoomScaleRef.current > 1) {
-        setZoomScale(1);
-        setZoomOffset({ x: 0, y: 0 });
+      if (scaleRef.current > 1) {
+        applyTransform(1, { x: 0, y: 0 }, { animate: true });
       } else {
-        setZoomScaleClamped(2.5);
+        applyTransform(2.5, { x: 0, y: 0 }, { animate: true });
       }
+      setTimeout(syncDisplayScale, 190);
     }
     lastTapRef.current = now;
   };
 
-  const zoomPanResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => !!imageUrlRef.current,
-      onMoveShouldSetPanResponder: () => !!imageUrlRef.current,
+  const zoomPanResponder = useMemo(
+    () => PanResponder.create({
+onStartShouldSetPanResponder: (evt) => {
+  return !!imageUrlRef.current;
+},
+
+onStartShouldSetPanResponderCapture: () => true,
+onMoveShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponder: (_, gesture) => (
+        !!imageUrlRef.current
+        && (gesture.numberActiveTouches === 2
+          || Math.abs(gesture.dx) > 2
+          || Math.abs(gesture.dy) > 2)
+      ),
       onPanResponderGrant: (evt) => {
+        movedDuringGestureRef.current = false;
         const touches = evt.nativeEvent.touches;
         if (touches.length === 2) {
           isPinchingRef.current = true;
           const distance = pinchDistance(touches);
           if (!distance) return;
           pinchStartDistanceRef.current = distance;
-          pinchStartScaleRef.current = zoomScaleRef.current;
+          pinchStartScaleRef.current = scaleRef.current;
           panStartRef.current = null;
           return;
         }
-        if (touches.length === 1 && zoomScaleRef.current > 1) {
+        if (touches.length === 1) {
           isPinchingRef.current = false;
-          panStartRef.current = {
-            x: touches[0].pageX,
-            y: touches[0].pageY,
-            ox: zoomOffsetRef.current.x,
-            oy: zoomOffsetRef.current.y,
-          };
+          pinchStartDistanceRef.current = null;
+          if (scaleRef.current > 1) {
+            panStartRef.current = {
+              x: touches[0].pageX,
+              y: touches[0].pageY,
+              ox: offsetRef.current.x,
+              oy: offsetRef.current.y,
+            };
+          }
         }
       },
       onPanResponderMove: (evt) => {
         const touches = evt.nativeEvent.touches;
         if (touches.length === 2) {
-          isPinchingRef.current = true;
+          if (!isPinchingRef.current || !pinchStartDistanceRef.current) {
+            isPinchingRef.current = true;
+            pinchStartDistanceRef.current = pinchDistance(touches);
+            pinchStartScaleRef.current = scaleRef.current;
+            panStartRef.current = null;
+            return;
+          }
+
           const distance = pinchDistance(touches);
           const startDistance = pinchStartDistanceRef.current;
           if (!distance || !startDistance) return;
-          setZoomScaleClamped(pinchStartScaleRef.current * (distance / startDistance));
+
+          movedDuringGestureRef.current = true;
+          const newScale = clampScale(pinchStartScaleRef.current * (distance / startDistance));
+          applyTransform(newScale, offsetRef.current, { animate: false });
           return;
         }
-        if (
-          touches.length === 1
-          && panStartRef.current
-          && zoomScaleRef.current > 1
-          && !isPinchingRef.current
-        ) {
-          const dx = touches[0].pageX - panStartRef.current.x;
-          const dy = touches[0].pageY - panStartRef.current.y;
-          setZoomOffset(clampZoomOffset({
-            x: panStartRef.current.ox + dx,
-            y: panStartRef.current.oy + dy,
-          }, zoomScaleRef.current));
+        if (touches.length === 1) {
+          if (isPinchingRef.current) {
+            isPinchingRef.current = false;
+            pinchStartDistanceRef.current = null;
+            panStartRef.current = null;
+          }
+          if (scaleRef.current > 1) {
+            if (!panStartRef.current) {
+              panStartRef.current = {
+                x: touches[0].pageX,
+                y: touches[0].pageY,
+                ox: offsetRef.current.x,
+                oy: offsetRef.current.y,
+              };
+              return;
+            }
+            const dx = touches[0].pageX - panStartRef.current.x;
+            const dy = touches[0].pageY - panStartRef.current.y;
+            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+              movedDuringGestureRef.current = true;
+            }
+            applyTransform(scaleRef.current, {
+              x: panStartRef.current.ox + dx,
+              y: panStartRef.current.oy + dy,
+            });
+          }
         }
       },
       onPanResponderRelease: () => {
         pinchStartDistanceRef.current = null;
         panStartRef.current = null;
         isPinchingRef.current = false;
+        if (scaleRef.current < 1) {
+  applyTransform(1, { x: 0, y: 0 }, { animate: true });
+}
+
+syncDisplayScale();
+        if (!movedDuringGestureRef.current) {
+          handleZoomTap();
+        }
       },
       onPanResponderTerminate: () => {
         pinchStartDistanceRef.current = null;
         panStartRef.current = null;
         isPinchingRef.current = false;
+        if (scaleRef.current < 1) {
+  applyTransform(1, { x: 0, y: 0 }, { animate: true });
+}
+
+syncDisplayScale();
+
       },
-    })
-  ).current;
+    }),
+    [scaleAnim, translateXAnim, translateYAnim],
+  );
 
   return (
     <Modal
@@ -150,21 +260,20 @@ export default function ImageZoomModal({ imageUrl, onClose }) {
           {...zoomPanResponder.panHandlers}
         >
           {imageUrl ? (
-            <Pressable onPress={handleZoomTap} accessibilityRole="imagebutton">
-              <Image
-                source={{ uri: imageUrl }}
-                style={{
-                  width: SCREEN_WIDTH,
-                  height: SCREEN_HEIGHT,
-                  transform: [
-                    { translateX: zoomOffset.x },
-                    { translateY: zoomOffset.y },
-                    { scale: zoomScale },
-                  ],
-                }}
-                resizeMode="contain"
-              />
-            </Pressable>
+            <Animated.Image
+              source={{ uri: imageUrl }}
+              style={{
+                width: SCREEN_WIDTH,
+                height: SCREEN_HEIGHT,
+                transform: [
+                  { translateX: translateXAnim },
+                  { translateY: translateYAnim },
+                  { scale: scaleAnim },
+                ],
+              }}
+              resizeMode="contain"
+              fadeDuration={0}
+            />
           ) : null}
         </View>
 
@@ -186,16 +295,16 @@ export default function ImageZoomModal({ imageUrl, onClose }) {
           </Text>
           <View className="flex-row justify-center items-center">
             <Pressable
-              onPress={() => setZoomScaleClamped(zoomScale - 0.5)}
+              onPress={() => setZoomScaleClamped(scaleRef.current - 0.5)}
               className="w-12 h-12 bg-white/20 rounded-full items-center justify-center"
             >
               <Ionicons name="remove" size={24} color="#fff" />
             </Pressable>
             <View className="bg-white/20 rounded-full px-4 py-2 mx-3">
-              <Text className="text-white text-sm font-semibold">{Math.round(zoomScale * 100)}%</Text>
+              <Text className="text-white text-sm font-semibold">{displayScale}%</Text>
             </View>
             <Pressable
-              onPress={() => setZoomScaleClamped(zoomScale + 0.5)}
+              onPress={() => setZoomScaleClamped(scaleRef.current + 0.5)}
               className="w-12 h-12 bg-white/20 rounded-full items-center justify-center"
             >
               <Ionicons name="add" size={24} color="#fff" />
