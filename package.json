@@ -5,7 +5,7 @@
   "scripts": {
     "start": "set EXPO_NO_DEPENDENCY_VALIDATION=1&& expo start",
     "android": "set EXPO_NO_DEPENDENCY_VALIDATION=1&& expo run:android",
-    "android:release": "cd android && gradlew.bat clean assembleRelease -x lint -x test -PreactNativeArchitectures=arm64-v8a",
+    "android:release": "set EXPO_PUBLIC_API_URL=https://backendapis.thesboxx.com/api&& cd android && gradlew.bat clean assembleRelease -x lint -x test -PreactNativeArchitectures=arm64-v8a",
     "ios": "expo run:ios"
   },
   "dependencies": {
