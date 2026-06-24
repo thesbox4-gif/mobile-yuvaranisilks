@@ -51,6 +51,7 @@ export default function Step2Images({ wizardData, update }) {
         ],
       });
     } catch (err) {
+      console.error('[Step2Images] Upload failed:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
       alertDialog('Upload failed', err.message);
     } finally {
       setUploading(null);

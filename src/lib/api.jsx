@@ -372,15 +372,19 @@ export const uploadImage = async (source, bucket = 'product-images') => {
     const file = source.file;
     const filename = source.name || file.name || `upload-${Date.now()}.jpg`;
     formData.append('file', file, filename);
+    console.log('[uploadImage] field=file name=' + filename + ' size=' + file.size + ' type=' + file.type);
   } else {
     const uri = typeof source === 'string' ? source : source?.uri;
     const filename = uri.split('/').pop();
     const ext = filename.split('.').pop().toLowerCase();
     const type = ext === 'jpg' ? 'image/jpeg' : `image/${ext}`;
     formData.append('file', { uri, name: filename, type });
+    console.log('[uploadImage] field=file uri=' + uri + ' name=' + filename + ' type=' + type);
   }
 
   formData.append('bucket', bucket);
+  console.log('[uploadImage] field=bucket value=' + bucket);
+  console.log('[uploadImage] target=' + API_URL + '/upload/image');
 
   return apiFetch('/upload/image', { method: 'POST', body: formData });
 };

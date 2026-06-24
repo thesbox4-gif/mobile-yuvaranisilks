@@ -89,6 +89,7 @@ export default function StepPhotos({ wizardData, update }) {
         ],
       });
     } catch (err) {
+      console.error('[StepPhotos] Upload failed:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
       alertDialog('Upload failed', err.message);
     } finally {
       setUploading(null);
