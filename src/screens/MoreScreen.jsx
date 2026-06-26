@@ -82,6 +82,11 @@ export default function MoreScreen({ navigation }) {
           label="Categories"
           onPress={() => navigation.navigate('Categories')}
         />
+        <MenuItem
+          icon="barcode-outline"
+          label="Scan Barcode"
+          onPress={() => navigation.navigate('BarcodeScanner', { mode: 'lookup' })}
+        />
       </MenuSection>
 
       {/* Admin only */}
@@ -121,6 +126,21 @@ export default function MoreScreen({ navigation }) {
             icon="pricetag"
             label="Coupons"
             onPress={() => navigation.navigate('Coupons')}
+          />
+          <MenuItem
+            icon="cloud-upload-outline"
+            label="Usage Limits"
+            onPress={() => navigation.navigate('UsageLimits')}
+          />
+          <MenuItem
+            icon="megaphone-outline"
+            label="Broadcast Logs"
+            onPress={() => navigation.navigate('BroadcastLogs')}
+          />
+          <MenuItem
+            icon="people-circle-outline"
+            label="Re-engagement Logs"
+            onPress={() => navigation.navigate('ReengagementLogs')}
           />
         </MenuSection>
       )}

@@ -16,6 +16,10 @@ import useAuthStore from '../../store/authStore';
 import * as Haptics from 'expo-haptics';
 import { resolveColorHex } from '../../lib/colors';
 import { alertDialog } from '../../lib/dialog';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import * as Print from 'expo-print';
+import * as MediaLibrary from 'expo-media-library';
 
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -62,10 +66,73 @@ export default function ProductDetailScreen({ route, navigation }) {
   zoomOffsetRef.current = zoomOffset;
   zoomUrlRef.current = zoomUrl;
   const [confirmDialog, setConfirmDialog] = useState(null); // { title, message, actions, dismissible }
+  const [barcodeOp, setBarcodeOp] = useState(null); // 'download' | 'share' | 'print' | null
 
   const isAdmin = user?.role === 'admin';
   const isStaff = user?.role === 'admin' || user?.role === 'employee';
   const isCustomerView = viewMode === 'user';
+
+  const getBarcodeImageUrl = (barcode) =>
+    `https://barcodeapi.org/api/128/${encodeURIComponent(barcode)}`;
+
+  const formatLocation = (p) => {
+    if (!p) return null;
+    const parts = [p.rack_block, p.rack_row, p.rack_position].filter(Boolean);
+    if (parts.length) return parts.join('-');
+    return p.block || null;
+  };
+
+  const handleBarcodeDownload = async (barcode) => {
+    setBarcodeOp('download');
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Allow photo library access to save the barcode.');
+        return;
+      }
+      const url = getBarcodeImageUrl(barcode);
+      const dest = `${FileSystem.cacheDirectory}barcode_${barcode}.png`;
+      const { uri } = await FileSystem.downloadAsync(url, dest);
+      await MediaLibrary.saveToLibraryAsync(uri);
+      Alert.alert('Saved', 'Barcode image saved to your photo gallery.');
+    } catch {
+      Alert.alert('Error', 'Could not download barcode. Check your connection.');
+    } finally {
+      setBarcodeOp(null);
+    }
+  };
+
+  const handleBarcodeShare = async (barcode) => {
+    setBarcodeOp('share');
+    try {
+      const url = getBarcodeImageUrl(barcode);
+      const dest = `${FileSystem.cacheDirectory}barcode_${barcode}.png`;
+      const { uri } = await FileSystem.downloadAsync(url, dest);
+      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: `Barcode: ${barcode}` });
+    } catch {
+      Alert.alert('Error', 'Could not share barcode.');
+    } finally {
+      setBarcodeOp(null);
+    }
+  };
+
+  const handleBarcodePrint = async (barcode, productTitle) => {
+    setBarcodeOp('print');
+    try {
+      const imageUrl = getBarcodeImageUrl(barcode);
+      const html = `
+        <html><body style="text-align:center;font-family:sans-serif;padding:40px;">
+          <h2 style="font-size:18px;margin-bottom:4px;">${productTitle || 'Product'}</h2>
+          <img src="${imageUrl}" style="width:300px;height:auto;display:block;margin:16px auto;" />
+          <p style="font-size:14px;letter-spacing:2px;font-family:monospace;">${barcode}</p>
+        </body></html>`;
+      await Print.printAsync({ html });
+    } catch {
+      Alert.alert('Error', 'Could not print barcode.');
+    } finally {
+      setBarcodeOp(null);
+    }
+  };
 
   const { data: product, isLoading } = useQuery({
     queryKey: ['product', productId],
@@ -575,6 +642,95 @@ export default function ProductDetailScreen({ route, navigation }) {
                   </View>
                 );
               })}
+            </View>
+          )}
+
+          {/* Storage Info — rack location + barcode, staff only */}
+          {isStaff && !isCustomerView && (product.block || product.rack_block || product.barcode) && (
+            <View className="bg-white rounded-2xl p-4 mb-4 shadow-sm">
+              <Text className="text-sm font-semibold text-gray-700 mb-3">Storage Info</Text>
+
+              {/* Rack Location */}
+              {formatLocation(product) ? (
+                <View className="flex-row items-center py-2 border-b border-gray-50 mb-2">
+                  <View className="w-9 h-9 rounded-xl bg-amber-50 items-center justify-center mr-3">
+                    <Ionicons name="location-outline" size={18} color="#f59e0b" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-xs text-gray-500 mb-0.5">Rack Location</Text>
+                    <Text className="text-xl font-black text-gray-900 font-mono tracking-widest">
+                      {formatLocation(product)}
+                    </Text>
+                    {(product.rack_block || product.rack_row || product.rack_position) && (
+                      <View className="flex-row gap-3 mt-1">
+                        {product.rack_block && <Text className="text-[10px] text-gray-400">Block: <Text className="font-bold text-gray-600">{product.rack_block}</Text></Text>}
+                        {product.rack_row && <Text className="text-[10px] text-gray-400">Row: <Text className="font-bold text-gray-600">{product.rack_row}</Text></Text>}
+                        {product.rack_position && <Text className="text-[10px] text-gray-400">Pos: <Text className="font-bold text-gray-600">{product.rack_position}</Text></Text>}
+                      </View>
+                    )}
+                  </View>
+                </View>
+              ) : null}
+
+              {/* Barcode */}
+              {product.barcode ? (
+                <View>
+                  <View className="flex-row items-center mb-3">
+                    <View className="w-9 h-9 rounded-xl bg-amber-50 items-center justify-center mr-3">
+                      <Ionicons name="barcode-outline" size={18} color="#f59e0b" />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-xs text-gray-500">Barcode</Text>
+                      <Text className="text-sm font-bold text-gray-900 font-mono tracking-wider">
+                        {product.barcode}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Barcode image preview */}
+                  <View className="bg-gray-50 rounded-xl p-3 mb-3 items-center">
+                    <Image
+                      source={{ uri: getBarcodeImageUrl(product.barcode) }}
+                      style={{ width: '100%', height: 80 }}
+                      resizeMode="contain"
+                    />
+                  </View>
+
+                  {/* Action buttons */}
+                  <View className="flex-row gap-2">
+                    <Pressable
+                      onPress={() => handleBarcodeDownload(product.barcode)}
+                      disabled={!!barcodeOp}
+                      className="flex-1 flex-row items-center justify-center gap-1.5 py-2.5 rounded-xl bg-blue-50 active:bg-blue-100"
+                    >
+                      {barcodeOp === 'download'
+                        ? <ActivityIndicator size="small" color="#2563eb" />
+                        : <Ionicons name="download-outline" size={16} color="#2563eb" />}
+                      <Text className="text-xs font-semibold text-blue-700">Download</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => handleBarcodeShare(product.barcode)}
+                      disabled={!!barcodeOp}
+                      className="flex-1 flex-row items-center justify-center gap-1.5 py-2.5 rounded-xl bg-green-50 active:bg-green-100"
+                    >
+                      {barcodeOp === 'share'
+                        ? <ActivityIndicator size="small" color="#16a34a" />
+                        : <Ionicons name="share-outline" size={16} color="#16a34a" />}
+                      <Text className="text-xs font-semibold text-green-700">Share</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => handleBarcodePrint(product.barcode, product.title)}
+                      disabled={!!barcodeOp}
+                      className="flex-1 flex-row items-center justify-center gap-1.5 py-2.5 rounded-xl bg-gray-100 active:bg-gray-200"
+                    >
+                      {barcodeOp === 'print'
+                        ? <ActivityIndicator size="small" color="#374151" />
+                        : <Ionicons name="print-outline" size={16} color="#374151" />}
+                      <Text className="text-xs font-semibold text-gray-700">Print</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : null}
             </View>
           )}
 

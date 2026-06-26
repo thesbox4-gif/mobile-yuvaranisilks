@@ -363,6 +363,18 @@ export const getEmployeePerformance = (params = {}) => {
 export const getSalesSummary = () => apiFetch('/analytics/sales-summary');
 export const getCategoryInventory = () => apiFetch('/analytics/category-inventory');
 
+export const getUsageLimits = () => apiFetch('/analytics/usage');
+
+// ─── Products — barcode lookup ─────────────────────────────────────────────────
+
+export const getProductByBarcode = (barcode) =>
+  apiFetch(`/products?barcode=${encodeURIComponent(barcode)}&limit=1`);
+
+// ─── Notification preferences ─────────────────────────────────────────────────
+
+export const updateNotificationPreferences = (prefs) =>
+  apiFetch('/auth/me/notifications', { method: 'PATCH', body: JSON.stringify(prefs) });
+
 // ─── Upload ───────────────────────────────────────────────────────────────────
 
 export const uploadImage = async (source, bucket = 'product-images') => {
@@ -441,3 +453,26 @@ export const markNotificationsRead = (ids) =>
 
 export const markAllNotificationsRead = () =>
   apiFetch('/notifications/mark-all-read', { method: 'POST' });
+
+// ─── Admin: Usage limit management ────────────────────────────────────────────
+
+export const updateUsageLimits = (payload) =>
+  apiFetch('/analytics/usage', { method: 'PATCH', body: JSON.stringify(payload) });
+
+// ─── Analytics: subscriber / broadcast / re-engagement ────────────────────────
+
+export const getSubscriberStats = () => apiFetch('/analytics/subscribers');
+
+export const getBroadcastLogs = (params = {}) => {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => v != null && qs.set(k, v));
+  const query = qs.toString();
+  return apiFetch(`/broadcasts${query ? `?${query}` : ''}`);
+};
+
+export const getReengagementLogs = (params = {}) => {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => v != null && qs.set(k, v));
+  const query = qs.toString();
+  return apiFetch(`/reengagement${query ? `?${query}` : ''}`);
+};

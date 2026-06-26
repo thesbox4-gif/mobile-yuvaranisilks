@@ -239,6 +239,20 @@ export default function ProfileScreen({ navigation }) {
           </View>
         )}
 
+        {/* Notification Settings (customers + all users) */}
+        <View className="bg-white rounded-2xl shadow-sm overflow-hidden mb-4">
+          <Pressable
+            onPress={() => navigation.navigate('NotificationSettings')}
+            className="flex-row items-center px-4 py-4 active:bg-gray-50"
+          >
+            <View className="w-9 h-9 rounded-xl bg-amber-50 items-center justify-center mr-3">
+              <Ionicons name="notifications-outline" size={18} color="#f59e0b" />
+            </View>
+            <Text className="flex-1 text-base font-medium text-gray-800">Notification Settings</Text>
+            <Ionicons name="chevron-forward" size={16} color="#d1d5db" />
+          </Pressable>
+        </View>
+
         {/* Sign Out */}
         <Pressable
           onPress={handleLogout}

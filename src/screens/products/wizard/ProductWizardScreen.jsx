@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, Pressable, ScrollView, Image, Alert,
   ActivityIndicator, Switch, Modal, Platform,
@@ -26,6 +26,7 @@ import HeroPhotoPreviewModal from '../../../components/products/HeroPhotoPreview
 import ImageZoomModal from '../../../components/ui/ImageZoomModal';
 import { buildPickerOptions, prepareImageForUpload } from '../../../lib/prepareImageForUpload';
 import { alertDialog } from '../../../lib/dialog';
+import useScanStore from '../../../store/scanStore';
 
 
 const WARM_BG = '#fffaf5';
@@ -172,7 +173,9 @@ export default function ProductWizardScreen({ route, navigation }) {
     stock: {},           // saree: {color:n}  dress/jewellery: {color:{sub:n}}
     content: { title: '', description: '' },
     barcode: '',
-    block: '',
+    rack_block: '',
+    rack_row: '',
+    rack_position: '',
     pricing: { basePrice: 0, discountPct: 0, couponCode: '', couponDiscount: 0, tags: '' },
   });
 
@@ -202,6 +205,25 @@ export default function ProductWizardScreen({ route, navigation }) {
   const [goldPurity, setGoldPurity] = useState('22K');
 
   const update = useCallback((partial) => setWizardData((prev) => ({ ...prev, ...partial })), []);
+
+  // Pick up barcode scanned from BarcodeScannerScreen
+  const pendingBarcode = useScanStore((s) => s.pendingBarcode);
+  const clearPendingBarcode = useScanStore((s) => s.clearPendingBarcode);
+  const appliedBarcodeRef = useRef(null);
+  useEffect(() => {
+    if (pendingBarcode && pendingBarcode !== appliedBarcodeRef.current) {
+      appliedBarcodeRef.current = pendingBarcode;
+      update({ barcode: pendingBarcode });
+      clearPendingBarcode();
+    }
+  }, [pendingBarcode, update, clearPendingBarcode]);
+
+  const generateBarcode = () => {
+    const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let code = 'YS-';
+    for (let i = 0; i < 8; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    update({ barcode: code });
+  };
 
   const openConfirm = (title, message, actions, dismissible = true) => {
     if (Platform.OS !== 'web') {
@@ -304,7 +326,9 @@ export default function ProductWizardScreen({ route, navigation }) {
       stock,
       content: { title: editProduct.title || '', description: editProduct.description || '' },
       barcode: editProduct.barcode || '',
-      block: editProduct.block || '',
+      rack_block: editProduct.rack_block || (editProduct.block || '').split('-')[0] || '',
+      rack_row: editProduct.rack_row || (editProduct.block || '').split('-')[1] || '',
+      rack_position: editProduct.rack_position || (editProduct.block || '').split('-')[2] || '',
       pricing: {
         basePrice: Number(editProduct.base_price) || 0,
         discountPct: Number(editProduct.discount_pct) || 0,
@@ -716,7 +740,11 @@ export default function ProductWizardScreen({ route, navigation }) {
         coupon_code: wizardData.pricing.couponCode || undefined,
         coupon_disc: wizardData.pricing.couponDiscount || undefined,
         barcode: wizardData.barcode.trim() || undefined,
-        block: wizardData.block.trim() || undefined,
+        rack_block: wizardData.rack_block.trim() || undefined,
+        rack_row: wizardData.rack_row.trim() || undefined,
+        rack_position: wizardData.rack_position.trim() || undefined,
+        block: [wizardData.rack_block, wizardData.rack_row, wizardData.rack_position]
+          .map((v) => (v || '').trim()).filter(Boolean).join('-') || undefined,
       };
 
       const product = mode === 'edit' && productId
@@ -1275,30 +1303,93 @@ export default function ProductWizardScreen({ route, navigation }) {
 
           <View className="mb-4">
             <Text className="text-sm font-medium mb-1.5" style={{ color: '#78350f' }}>Barcode</Text>
-            <TextInput
-              className="rounded-xl px-4 py-3 text-base"
-              style={{ backgroundColor: '#fef7f0', borderWidth: 1, borderColor: SECTION_BORDER, color: '#1f2937' }}
-              placeholder="Scan or enter barcode"
-              placeholderTextColor="#a16207"
-              value={wizardData.barcode}
-              onChangeText={(v) => update({ barcode: v })}
-              autoCapitalize="characters"
-              autoCorrect={false}
-            />
+            <View className="flex-row items-center gap-2">
+              <TextInput
+                className="flex-1 rounded-xl px-4 py-3 text-base font-mono"
+                style={{ backgroundColor: '#fef7f0', borderWidth: 1, borderColor: SECTION_BORDER, color: '#1f2937' }}
+                placeholder="Scan or enter barcode"
+                placeholderTextColor="#a16207"
+                value={wizardData.barcode}
+                onChangeText={(v) => update({ barcode: v })}
+                autoCapitalize="characters"
+                autoCorrect={false}
+              />
+              <Pressable
+                onPress={() => navigation.navigate('BarcodeScanner', { mode: 'assign' })}
+                className="w-11 h-11 rounded-xl items-center justify-center"
+                style={{ backgroundColor: '#1f2937' }}
+              >
+                <Ionicons name="barcode-outline" size={22} color="#fff" />
+              </Pressable>
+              <Pressable
+                onPress={generateBarcode}
+                className="w-11 h-11 rounded-xl items-center justify-center"
+                style={{ backgroundColor: AMBER_500 }}
+              >
+                <Ionicons name="refresh-outline" size={20} color="#fff" />
+              </Pressable>
+            </View>
+            <Text className="text-[10px] mt-1" style={{ color: '#a16207' }}>
+              Tap <Ionicons name="barcode-outline" size={10} color="#a16207" /> to scan  ·  Tap <Ionicons name="refresh-outline" size={10} color="#a16207" /> to auto-generate
+            </Text>
           </View>
 
+          {/* Rack Location — Block / Row / Position */}
           <View className="mb-4">
-            <Text className="text-sm font-medium mb-1.5" style={{ color: '#78350f' }}>Block</Text>
-            <TextInput
-              className="rounded-xl px-4 py-3 text-base"
-              style={{ backgroundColor: '#fef7f0', borderWidth: 1, borderColor: SECTION_BORDER, color: '#1f2937' }}
-              placeholder="Enter block"
-              placeholderTextColor="#a16207"
-              value={wizardData.block}
-              onChangeText={(v) => update({ block: v })}
-              autoCapitalize="characters"
-              autoCorrect={false}
-            />
+            <Text className="text-sm font-medium mb-1.5" style={{ color: '#78350f' }}>Rack Location</Text>
+            {[wizardData.rack_block, wizardData.rack_row, wizardData.rack_position].some(Boolean) && (
+              <View className="bg-amber-50 rounded-xl px-3 py-2 mb-2 flex-row items-center">
+                <Ionicons name="location-outline" size={14} color="#b45309" />
+                <Text className="text-sm font-bold text-amber-900 ml-1.5 font-mono">
+                  {[wizardData.rack_block || '?', wizardData.rack_row || '?', wizardData.rack_position || '?'].join('-')}
+                </Text>
+              </View>
+            )}
+            <View className="flex-row gap-2">
+              <View className="flex-1">
+                <Text className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#a16207' }}>Block</Text>
+                <TextInput
+                  className="rounded-xl px-3 py-3 text-base text-center font-bold"
+                  style={{ backgroundColor: '#fef7f0', borderWidth: 1, borderColor: SECTION_BORDER, color: '#1f2937' }}
+                  placeholder="A"
+                  placeholderTextColor="#a16207"
+                  value={wizardData.rack_block}
+                  onChangeText={(v) => update({ rack_block: v.toUpperCase() })}
+                  maxLength={3}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                />
+              </View>
+              <View className="flex-1">
+                <Text className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#a16207' }}>Row</Text>
+                <TextInput
+                  className="rounded-xl px-3 py-3 text-base text-center font-bold"
+                  style={{ backgroundColor: '#fef7f0', borderWidth: 1, borderColor: SECTION_BORDER, color: '#1f2937' }}
+                  placeholder="03"
+                  placeholderTextColor="#a16207"
+                  value={wizardData.rack_row}
+                  onChangeText={(v) => update({ rack_row: v.replace(/[^0-9]/g, '') })}
+                  keyboardType="numeric"
+                  maxLength={3}
+                />
+              </View>
+              <View className="flex-1">
+                <Text className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: '#a16207' }}>Position</Text>
+                <TextInput
+                  className="rounded-xl px-3 py-3 text-base text-center font-bold"
+                  style={{ backgroundColor: '#fef7f0', borderWidth: 1, borderColor: SECTION_BORDER, color: '#1f2937' }}
+                  placeholder="15"
+                  placeholderTextColor="#a16207"
+                  value={wizardData.rack_position}
+                  onChangeText={(v) => update({ rack_position: v.replace(/[^0-9]/g, '') })}
+                  keyboardType="numeric"
+                  maxLength={3}
+                />
+              </View>
+            </View>
+            <Text className="text-[10px] mt-1" style={{ color: '#a16207' }}>
+              Location format: Block-Row-Position  e.g. A-03-15
+            </Text>
           </View>
 
           {isGeneratingContent ? (

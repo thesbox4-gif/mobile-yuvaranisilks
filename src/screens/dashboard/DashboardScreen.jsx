@@ -1,14 +1,36 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, Pressable, ScrollView, ActivityIndicator, RefreshControl, Modal, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import useAuthStore from '../../store/authStore';
-import { getDashboard, getOfflineSales, getCategoryInventory, getProducts } from '../../lib/api';
+import { getDashboard, getOfflineSales, getCategoryInventory, getProducts, getUsageLimits, getSubscriberStats } from '../../lib/api';
 import { formatPrice } from '../../lib/utils';
 import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import { resolveColorHex } from '../../lib/colors';
+import * as Notifications from 'expo-notifications';
+
+// Session-level dedup: fire limit alert at most once per app session per type
+const _limitNotified = new Set();
+
+async function fireLimitAlert(type) {
+  if (_limitNotified.has(type)) return;
+  _limitNotified.add(type);
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: type === 'upload' ? '⚠️ Upload Limit Reached' : '⚠️ Generation Limit Reached',
+        body: type === 'upload'
+          ? 'All image upload slots are used. Contact support to upgrade your plan.'
+          : 'All AI image generation slots are used. Contact support to upgrade your plan.',
+        sound: true,
+        priority: 'high',
+      },
+      trigger: null,
+    });
+  } catch { /* notifications may not be granted */ }
+}
 
 function SubCategoryDetailProducts({ subCategoryId }) {
   const { data, isLoading } = useQuery({
@@ -142,6 +164,68 @@ function MetricCard({ label, value, onPress }) {
   );
 }
 
+function UsageCard({ icon, label, used, limit, color }) {
+  const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+  const barColor = pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : '#22c55e';
+  return (
+    <View className="flex-1 mx-1 bg-white rounded-2xl p-4 shadow-sm">
+      <View className="flex-row items-center mb-3">
+        <View className="w-8 h-8 rounded-full items-center justify-center mr-2" style={{ backgroundColor: `${color}18` }}>
+          <Ionicons name={icon} size={16} color={color} />
+        </View>
+        <Text className="text-xs font-semibold text-gray-700 flex-1" numberOfLines={1}>{label}</Text>
+      </View>
+      <Text className="text-xl font-bold text-gray-900">
+        {used ?? '—'}
+        {limit != null && <Text className="text-sm font-normal text-gray-400"> / {limit}</Text>}
+      </Text>
+      {limit != null && (
+        <>
+          <View className="mt-2 h-1.5 rounded-full bg-gray-100">
+            <View style={{ width: `${pct}%`, backgroundColor: barColor, height: '100%', borderRadius: 99 }} />
+          </View>
+          <Text className="text-[10px] text-gray-400 mt-1">{pct}% used</Text>
+        </>
+      )}
+    </View>
+  );
+}
+
+function OverviewCard({ icon, label, value, color, hint }) {
+  return (
+    <View style={{ width: '50%', padding: 4 }}>
+      <View className="bg-white rounded-2xl p-4 shadow-sm">
+        <View className="w-8 h-8 rounded-full items-center justify-center mb-3" style={{ backgroundColor: `${color}1A` }}>
+          <Ionicons name={icon} size={16} color={color} />
+        </View>
+        <Text className="text-2xl font-bold text-gray-900">{value ?? '—'}</Text>
+        <Text className="text-xs font-medium text-gray-600 mt-0.5">{label}</Text>
+        {hint ? <Text className="text-[10px] text-gray-400 mt-0.5">{hint}</Text> : null}
+      </View>
+    </View>
+  );
+}
+
+function LimitWarningBanner({ usage }) {
+  const uploadUsed = usage?.imagesUploaded ?? usage?.images_uploaded ?? 0;
+  const uploadLimit = usage?.imageUploadLimit ?? usage?.image_upload_limit ?? 0;
+  const genUsed = usage?.imagesGenerated ?? usage?.images_generated ?? 0;
+  const genLimit = usage?.imageGenerateLimit ?? usage?.image_generate_limit ?? 0;
+  const uploadFull = uploadLimit > 0 && uploadUsed >= uploadLimit;
+  const genFull = genLimit > 0 && genUsed >= genLimit;
+  if (!uploadFull && !genFull) return null;
+  const msg = uploadFull && genFull
+    ? 'Image upload & generation limits reached.'
+    : uploadFull ? 'Image upload limit reached.'
+    : 'Image generation limit reached.';
+  return (
+    <View className="bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 mt-2 flex-row items-center">
+      <Ionicons name="warning" size={16} color="#dc2626" />
+      <Text className="text-xs text-red-700 font-semibold ml-2 flex-1">{msg} Contact support to upgrade.</Text>
+    </View>
+  );
+}
+
 function Pill({ label, warn }) {
   return (
     <View className={`px-2 py-0.5 rounded-full ${warn ? 'bg-red-50' : 'bg-gray-100'}`}>
@@ -206,6 +290,20 @@ export default function DashboardScreen({ navigation }) {
     enabled: isAdmin || isEmployee,
   });
 
+  const { data: usage, refetch: refetchUsage } = useQuery({
+    queryKey: ['usage-limits'],
+    queryFn: getUsageLimits,
+    staleTime: 60_000,
+    enabled: isAdmin,
+  });
+
+  const { data: subscribers, refetch: refetchSubscribers } = useQuery({
+    queryKey: ['subscriber-stats'],
+    queryFn: getSubscriberStats,
+    staleTime: 120_000,
+    enabled: isAdmin,
+  });
+
   const recentSales = salesData?.data ?? salesData ?? [];
   const isLoading = (isAdmin || isEmployee) && dashLoading;
 
@@ -223,9 +321,22 @@ export default function DashboardScreen({ navigation }) {
     refetchDash();
     refetchSales();
     refetchCat();
+    refetchUsage();
+    refetchSubscribers();
   };
 
-  useRefetchOnFocus(['dashboard'], ['offline-sales'], ['category-inventory']);
+  useRefetchOnFocus(['dashboard'], ['offline-sales'], ['category-inventory'], ['usage-limits'], ['subscriber-stats']);
+
+  // Fire local notification when image limits are reached (once per session)
+  useEffect(() => {
+    if (!usage || !isAdmin) return;
+    const uploadUsed = usage.imagesUploaded ?? usage.images_uploaded ?? 0;
+    const uploadLimit = usage.imageUploadLimit ?? usage.image_upload_limit ?? 0;
+    const genUsed = usage.imagesGenerated ?? usage.images_generated ?? 0;
+    const genLimit = usage.imageGenerateLimit ?? usage.image_generate_limit ?? 0;
+    if (uploadLimit > 0 && uploadUsed >= uploadLimit) fireLimitAlert('upload');
+    if (genLimit > 0 && genUsed >= genLimit) fireLimitAlert('generate');
+  }, [usage, isAdmin]);
 
   // Roll the per-category inventory up into the 3 main product types.
   const mainCategories = MAIN_CATS.map((m) => {
@@ -460,6 +571,103 @@ export default function DashboardScreen({ navigation }) {
                 onPress={() => navigateToTab('MoreTab', 'Team')}
               />
             </View>
+          </View>
+        )}
+
+        {/* Store Overview (Admin) */}
+        {isAdmin && !dashLoading && stats && (
+          <View className="mb-4">
+            <Text className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Store Overview</Text>
+            <View className="flex-row flex-wrap" style={{ marginHorizontal: -4 }}>
+              <OverviewCard
+                icon="cube-outline"
+                label="Total Products"
+                value={stats.totalProducts ?? 0}
+                color="#7c3aed"
+              />
+              <OverviewCard
+                icon="sparkles"
+                label="New Arrivals"
+                value={stats.newArrivalsCount ?? stats.new_arrivals_count ?? stats.newArrivals}
+                color="#0d9488"
+                hint="Last 30 days"
+              />
+              <OverviewCard
+                icon="people"
+                label="Customers"
+                value={stats.totalCustomers ?? stats.customer_count ?? stats.customerCount}
+                color="#2563eb"
+                hint="Registered"
+              />
+              <OverviewCard
+                icon="megaphone-outline"
+                label="Broadcasts Sent"
+                value={stats.broadcastMessagesSent ?? stats.broadcast_count ?? stats.broadcastsSent}
+                color="#db2777"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Customer Notification Statistics (Admin) */}
+        {isAdmin && subscribers && (
+          <View className="mb-4">
+            <Text className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Notification Reach</Text>
+            <View className="flex-row flex-wrap" style={{ marginHorizontal: -4 }}>
+              <OverviewCard
+                icon="people-circle-outline"
+                label="Total Subscribers"
+                value={subscribers.totalSubscribers ?? subscribers.total_subscribers ?? subscribers.total}
+                color="#0d9488"
+              />
+              <OverviewCard
+                icon="logo-whatsapp"
+                label="WhatsApp"
+                value={subscribers.whatsappSubscribers ?? subscribers.whatsapp_subscribers ?? subscribers.whatsapp}
+                color="#16a34a"
+                hint="Active"
+              />
+              <OverviewCard
+                icon="phone-portrait-outline"
+                label="App Push"
+                value={subscribers.appSubscribers ?? subscribers.app_subscribers ?? subscribers.push}
+                color="#7c3aed"
+                hint="Active"
+              />
+              <OverviewCard
+                icon="megaphone-outline"
+                label="Last Broadcast"
+                value={subscribers.lastBroadcastDate ?? subscribers.last_broadcast_date
+                  ? new Date(subscribers.lastBroadcastDate ?? subscribers.last_broadcast_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+                  : '—'}
+                color="#db2777"
+                hint="Date sent"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Usage Limits (Admin) */}
+        {isAdmin && usage && (
+          <View className="mb-4">
+            <Text className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Usage Limits</Text>
+            <View className="flex-row">
+              <UsageCard
+                icon="cloud-upload-outline"
+                label="Images Uploaded"
+                used={usage.imagesUploaded ?? usage.images_uploaded}
+                limit={usage.imageUploadLimit ?? usage.image_upload_limit}
+                color="#2563eb"
+              />
+              <UsageCard
+                icon="sparkles-outline"
+                label="Images Generated"
+                used={usage.imagesGenerated ?? usage.images_generated}
+                limit={usage.imageGenerateLimit ?? usage.image_generate_limit}
+                color="#7c3aed"
+              />
+            </View>
+            <LimitWarningBanner usage={usage} />
           </View>
         )}
 

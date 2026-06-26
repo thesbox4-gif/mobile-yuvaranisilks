@@ -30,6 +30,11 @@ import TeamScreen from '../screens/team/TeamScreen';
 import EmployeeDetailScreen from '../screens/team/EmployeeDetailScreen';
 import CreateUserScreen from '../screens/users/CreateUserScreen';
 import MySalesScreen from '../screens/sales/MySalesScreen';
+import BarcodeScannerScreen from '../screens/scanner/BarcodeScannerScreen';
+import NotificationSettingsScreen from '../screens/profile/NotificationSettingsScreen';
+import UsageLimitsScreen from '../screens/admin/UsageLimitsScreen';
+import BroadcastLogsScreen from '../screens/admin/BroadcastLogsScreen';
+import ReengagementLogsScreen from '../screens/admin/ReengagementLogsScreen';
 
 const Tab = createBottomTabNavigator();
 const DashStack = createNativeStackNavigator();
@@ -61,6 +66,7 @@ function CollectionsStack() {
       <CollStack.Screen name="Products" component={ProductsScreen} />
       <CollStack.Screen name="ProductDetail" component={ProductDetailScreen} />
       <CollStack.Screen name="ProductWizard" component={ProductWizardScreen} />
+      <CollStack.Screen name="BarcodeScanner" component={BarcodeScannerScreen} />
     </CollStack.Navigator>
   );
 }
@@ -83,12 +89,18 @@ function MoreStack() {
       <MoreStk.Screen name="Employees" component={EmployeesScreen} />
       <MoreStk.Screen name="Coupons" component={CouponsScreen} />
       <MoreStk.Screen name="Profile" component={ProfileScreen} />
+      <MoreStk.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
       <MoreStk.Screen name="Orders" component={OrdersScreen} />
       <MoreStk.Screen name="OrderDetail" component={OrderDetailScreen} />
       <MoreStk.Screen name="Team" component={TeamScreen} />
       <MoreStk.Screen name="EmployeeDetail" component={EmployeeDetailScreen} />
       <MoreStk.Screen name="CreateUser" component={CreateUserScreen} />
       <MoreStk.Screen name="SalesHistory" component={MySalesScreen} />
+      <MoreStk.Screen name="BarcodeScanner" component={BarcodeScannerScreen} />
+      <MoreStk.Screen name="ProductDetail" component={ProductDetailScreen} />
+      <MoreStk.Screen name="UsageLimits" component={UsageLimitsScreen} />
+      <MoreStk.Screen name="BroadcastLogs" component={BroadcastLogsScreen} />
+      <MoreStk.Screen name="ReengagementLogs" component={ReengagementLogsScreen} />
     </MoreStk.Navigator>
   );
 }
@@ -108,6 +120,7 @@ function ProfileStack() {
   return (
     <ProfStack.Navigator screenOptions={STACK_OPTS}>
       <ProfStack.Screen name="Profile" component={ProfileScreen} />
+      <ProfStack.Screen name="NotificationSettings" component={NotificationSettingsScreen} />
     </ProfStack.Navigator>
   );
 }
@@ -117,6 +130,7 @@ function CreateStack() {
     <CreateStackNav.Navigator screenOptions={STACK_OPTS}>
       <CreateStackNav.Screen name="AddProductType" component={AddProductTypeScreen} />
       <CreateStackNav.Screen name="ProductWizard" component={ProductWizardScreen} />
+      <CreateStackNav.Screen name="BarcodeScanner" component={BarcodeScannerScreen} />
     </CreateStackNav.Navigator>
   );
 }
