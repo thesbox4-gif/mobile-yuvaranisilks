@@ -22,6 +22,11 @@ const CARD_BG = '#ffffff';
 const SECTION_BORDER = '#fde8d0';
 const AMBER_500 = '#f59e0b';
 
+// Sentinel "category" for products that have no sub-category (category_id null or
+// sitting on a type root). Lets admins reach products that would otherwise be
+// invisible because Collections only lists products inside sub-categories.
+const UNCATEGORIZED = '__uncategorized__';
+
 const TYPE_CARDS = PRODUCT_TYPE_CARDS.map((t) => ({
   ...t,
   iconColor: t.accentColor,
@@ -156,9 +161,10 @@ export default function ProductsScreen({ navigation, route }) {
   }, [inventoryData]);
 
   const categoryStockReady = canAdd && !invLoading;
-  const visibleSubCats = categoryStockReady
-    ? subCats.filter((cat) => (categoryStats[cat.id]?.totalStock ?? 0) > 0)
-    : subCats;
+  // Show every sub-category — including empty / out-of-stock ones — so the count
+  // here matches the "N categories" on the collection card, and admins can always
+  // find a category they just created. Stock badges still render where available.
+  const visibleSubCats = subCats;
 
   const query = searchText.trim();
   const isSearching = searchOpen && query.length > 0;
@@ -200,7 +206,14 @@ export default function ProductsScreen({ navigation, route }) {
       getProducts({
         page: pageParam, limit: 20,
         type: selectedType,
-        ...(selectedCategory ? { category: selectedCategory } : {}),
+        // Admins/employees see drafts too, so a freshly-added (unpublished) product
+        // shows up immediately instead of looking like it vanished.
+        ...(canAdd ? { published: 'all' } : {}),
+        ...(selectedCategory === UNCATEGORIZED
+          ? { uncategorized: 'true' }
+          : selectedCategory
+            ? { category: selectedCategory }
+            : {}),
       }),
     getNextPageParam: (lastPage) =>
       lastPage.page < lastPage.totalPages ? lastPage.page + 1 : undefined,
@@ -211,7 +224,7 @@ export default function ProductsScreen({ navigation, route }) {
   // ─── Search results ──────────────────────────────────────────────
   const { data: searchData, isLoading: searchLoading } = useQuery({
     queryKey: ['product-search', query],
-    queryFn: () => getProducts({ search: query, limit: 50 }),
+    queryFn: () => getProducts({ search: query, limit: 50, ...(canAdd ? { published: 'all' } : {}) }),
     enabled: isSearching,
     staleTime: 30_000,
   });
@@ -235,7 +248,9 @@ export default function ProductsScreen({ navigation, route }) {
   ), [navigation, canAdd]);
 
   const currentTypeCard = TYPE_CARDS.find((t) => t.key === selectedType);
-  const categoryName = subCats.find((c) => c.id === selectedCategory)?.name || '';
+  const categoryName = selectedCategory === UNCATEGORIZED
+    ? 'Uncategorized'
+    : subCats.find((c) => c.id === selectedCategory)?.name || '';
 
   // ─── Search results view ─────────────────────────────────────────
   const renderSearchResults = () => (
@@ -327,6 +342,16 @@ export default function ProductsScreen({ navigation, route }) {
               />
             );
           })}
+          {/* Admin-only bucket for products that were saved without a sub-category,
+              so they can always be found and re-filed instead of disappearing. */}
+          {canAdd && (
+            <CollectionCategoryCard
+              title="Uncategorized"
+              fallbackIcon="help-circle-outline"
+              fallbackIconColor="#9ca3af"
+              onPress={() => setSelectedCategory(UNCATEGORIZED)}
+            />
+          )}
         </View>
       )}
 

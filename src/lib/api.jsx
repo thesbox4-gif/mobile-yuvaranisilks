@@ -454,11 +454,6 @@ export const markNotificationsRead = (ids) =>
 export const markAllNotificationsRead = () =>
   apiFetch('/notifications/mark-all-read', { method: 'POST' });
 
-// ─── Admin: Usage limit management ────────────────────────────────────────────
-
-export const updateUsageLimits = (payload) =>
-  apiFetch('/analytics/usage', { method: 'PATCH', body: JSON.stringify(payload) });
-
 // ─── Analytics: subscriber / broadcast / re-engagement ────────────────────────
 
 export const getSubscriberStats = () => apiFetch('/analytics/subscribers');

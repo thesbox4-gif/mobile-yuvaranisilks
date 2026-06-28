@@ -3,7 +3,7 @@ export const BRAND = {
   nameUpper: 'YUVARANI SILKS',
   tagline: 'Admin & Employee Portal',
   email: 'yuvaranisilks@gmail.com',
-  phone: '+91 84988 37027',
+  phone: '+91 91600 65456',
   address:
     'H, No. 1-10-1/214Chakripuram, Sri Chakri Puram Colony, Kushaiguda, Hyderabad, Secunderabad, Telangana 500062',
   logo: require('../../assets/brand/logo.png'),

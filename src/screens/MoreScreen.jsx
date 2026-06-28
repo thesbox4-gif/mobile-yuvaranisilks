@@ -128,11 +128,6 @@ export default function MoreScreen({ navigation }) {
             onPress={() => navigation.navigate('Coupons')}
           />
           <MenuItem
-            icon="cloud-upload-outline"
-            label="Usage Limits"
-            onPress={() => navigation.navigate('UsageLimits')}
-          />
-          <MenuItem
             icon="megaphone-outline"
             label="Broadcast Logs"
             onPress={() => navigation.navigate('BroadcastLogs')}

@@ -32,7 +32,6 @@ import CreateUserScreen from '../screens/users/CreateUserScreen';
 import MySalesScreen from '../screens/sales/MySalesScreen';
 import BarcodeScannerScreen from '../screens/scanner/BarcodeScannerScreen';
 import NotificationSettingsScreen from '../screens/profile/NotificationSettingsScreen';
-import UsageLimitsScreen from '../screens/admin/UsageLimitsScreen';
 import BroadcastLogsScreen from '../screens/admin/BroadcastLogsScreen';
 import ReengagementLogsScreen from '../screens/admin/ReengagementLogsScreen';
 
@@ -98,7 +97,6 @@ function MoreStack() {
       <MoreStk.Screen name="SalesHistory" component={MySalesScreen} />
       <MoreStk.Screen name="BarcodeScanner" component={BarcodeScannerScreen} />
       <MoreStk.Screen name="ProductDetail" component={ProductDetailScreen} />
-      <MoreStk.Screen name="UsageLimits" component={UsageLimitsScreen} />
       <MoreStk.Screen name="BroadcastLogs" component={BroadcastLogsScreen} />
       <MoreStk.Screen name="ReengagementLogs" component={ReengagementLogsScreen} />
     </MoreStk.Navigator>

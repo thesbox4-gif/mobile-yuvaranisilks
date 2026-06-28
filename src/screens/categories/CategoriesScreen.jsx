@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, FlatList, Pressable, Modal, TextInput,
   ActivityIndicator, Alert, RefreshControl, Image, ScrollView,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -17,6 +18,17 @@ import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import * as Haptics from 'expo-haptics';
 import { alertDialog } from '../../lib/dialog';
 
+// Mirrors the backend slugify: lowercase, collapse any run of non-alphanumerics
+// to a single hyphen, and trim leading/trailing hyphens. Critically this strips
+// trailing hyphens, so a name typed with a trailing space ("Jewellery ") can no
+// longer produce a broken slug like "jewellery-" that breaks Collections mapping.
+function slugify(value) {
+  return (value ?? '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
 
 function CategoryModal({ visible, onClose, onSave, isSaving, parents, editing }) {
   const [name, setName] = useState('');
@@ -58,7 +70,7 @@ function CategoryModal({ visible, onClose, onSave, isSaving, parents, editing })
     onSave({
       id: editing?.id,
       name: name.trim(),
-      slug: slug.trim() || name.trim().toLowerCase().replace(/\s+/g, '-'),
+      slug: slugify(slug) || slugify(name),
       parent_id: parentId || undefined,
       imageUri: showPhotoPicker ? imageUri : undefined,
       skipImage: !showPhotoPicker,
@@ -69,8 +81,18 @@ function CategoryModal({ visible, onClose, onSave, isSaving, parents, editing })
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable className="flex-1 bg-black/40" onPress={onClose}>
-        <Pressable className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl px-5 pt-5 pb-8">
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <View className="flex-1 bg-black/40">
+          <Pressable className="flex-1" onPress={onClose} />
+          <View className="bg-white rounded-t-3xl" style={{ maxHeight: '90%' }}>
+            <ScrollView
+              contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 32 }}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
           <Text className="text-lg font-bold text-gray-900 mb-5">
             {editing ? 'Edit Category' : 'New Category'}
           </Text>
@@ -107,7 +129,7 @@ function CategoryModal({ visible, onClose, onSave, isSaving, parents, editing })
               value={name}
               onChangeText={(t) => {
                 setName(t);
-                setSlug(t.toLowerCase().replace(/\s+/g, '-'));
+                setSlug(slugify(t));
               }}
               autoFocus
             />
@@ -170,8 +192,10 @@ function CategoryModal({ visible, onClose, onSave, isSaving, parents, editing })
               )}
             </Pressable>
           </View>
-        </Pressable>
-      </Pressable>
+            </ScrollView>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

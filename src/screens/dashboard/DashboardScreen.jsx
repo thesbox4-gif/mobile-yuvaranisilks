@@ -3,6 +3,7 @@ import { View, Text, Pressable, ScrollView, ActivityIndicator, RefreshControl, M
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
+import { ImageUp, Sparkles } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import useAuthStore from '../../store/authStore';
 import { getDashboard, getOfflineSales, getCategoryInventory, getProducts, getUsageLimits, getSubscriberStats } from '../../lib/api';
@@ -164,29 +165,28 @@ function MetricCard({ label, value, onPress }) {
   );
 }
 
-function UsageCard({ icon, label, used, limit, color }) {
-  const pct = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+// KPI card for the dashboard image-usage section. Uses lucide-react-native icons
+// and a progress bar whose colour reacts to how much of the limit is consumed.
+function UsageKpiCard({ Icon, label, used, limit, color, bg }) {
+  const u = Number(used ?? 0);
+  const l = Number(limit ?? 0);
+  const hasLimit = l > 0;
+  const pct = hasLimit ? Math.min(100, Math.round((u / l) * 100)) : 0;
   const barColor = pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : '#22c55e';
   return (
     <View className="flex-1 mx-1 bg-white rounded-2xl p-4 shadow-sm">
-      <View className="flex-row items-center mb-3">
-        <View className="w-8 h-8 rounded-full items-center justify-center mr-2" style={{ backgroundColor: `${color}18` }}>
-          <Ionicons name={icon} size={16} color={color} />
-        </View>
-        <Text className="text-xs font-semibold text-gray-700 flex-1" numberOfLines={1}>{label}</Text>
+      <View className="w-10 h-10 rounded-xl items-center justify-center mb-3" style={{ backgroundColor: bg }}>
+        <Icon size={20} color={color} strokeWidth={2.2} />
       </View>
-      <Text className="text-xl font-bold text-gray-900">
-        {used ?? '—'}
-        {limit != null && <Text className="text-sm font-normal text-gray-400"> / {limit}</Text>}
+      <Text className="text-2xl font-bold text-gray-900" numberOfLines={1} adjustsFontSizeToFit>
+        {u}
+        <Text className="text-base font-semibold text-gray-400"> / {hasLimit ? l : '—'}</Text>
       </Text>
-      {limit != null && (
-        <>
-          <View className="mt-2 h-1.5 rounded-full bg-gray-100">
-            <View style={{ width: `${pct}%`, backgroundColor: barColor, height: '100%', borderRadius: 99 }} />
-          </View>
-          <Text className="text-[10px] text-gray-400 mt-1">{pct}% used</Text>
-        </>
-      )}
+      <Text className="text-xs text-gray-500 mt-0.5 font-medium">{label}</Text>
+      <View className="mt-3 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+        <View style={{ width: `${pct}%`, backgroundColor: barColor, height: '100%', borderRadius: 99 }} />
+      </View>
+      <Text className="text-[10px] text-gray-400 mt-1">{hasLimit ? `${pct}% used` : 'No limit set'}</Text>
     </View>
   );
 }
@@ -413,6 +413,32 @@ export default function DashboardScreen({ navigation }) {
                 </Text>
               </>
             )}
+          </View>
+        )}
+
+        {/* Image Usage (Admin) — sits directly below Total Revenue */}
+        {isAdmin && usage && (
+          <View className="mb-4">
+            <Text className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Image Usage</Text>
+            <View className="flex-row">
+              <UsageKpiCard
+                Icon={ImageUp}
+                label="Images Uploaded"
+                used={usage.imagesUploaded ?? usage.images_uploaded}
+                limit={usage.imageUploadLimit ?? usage.image_upload_limit}
+                color="#2563eb"
+                bg="#dbeafe"
+              />
+              <UsageKpiCard
+                Icon={Sparkles}
+                label="AI Generated"
+                used={usage.imagesGenerated ?? usage.images_generated}
+                limit={usage.imageGenerateLimit ?? usage.image_generate_limit}
+                color="#7c3aed"
+                bg="#ede9fe"
+              />
+            </View>
+            <LimitWarningBanner usage={usage} />
           </View>
         )}
 
@@ -644,30 +670,6 @@ export default function DashboardScreen({ navigation }) {
                 hint="Date sent"
               />
             </View>
-          </View>
-        )}
-
-        {/* Usage Limits (Admin) */}
-        {isAdmin && usage && (
-          <View className="mb-4">
-            <Text className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Usage Limits</Text>
-            <View className="flex-row">
-              <UsageCard
-                icon="cloud-upload-outline"
-                label="Images Uploaded"
-                used={usage.imagesUploaded ?? usage.images_uploaded}
-                limit={usage.imageUploadLimit ?? usage.image_upload_limit}
-                color="#2563eb"
-              />
-              <UsageCard
-                icon="sparkles-outline"
-                label="Images Generated"
-                used={usage.imagesGenerated ?? usage.images_generated}
-                limit={usage.imageGenerateLimit ?? usage.image_generate_limit}
-                color="#7c3aed"
-              />
-            </View>
-            <LimitWarningBanner usage={usage} />
           </View>
         )}
 
