@@ -750,14 +750,15 @@ export default function ProductWizardScreen({ route, navigation }) {
       const product = mode === 'edit' && productId
         ? await updateProduct(productId, payload)
         : await createProduct(payload);
+      const savedProductId = product?.id || productId;
 
       // Images — AI-generated first (display_order 0-9), uploaded originals
       // next (10-19), so the product gallery leads with the generated shot.
-      if (mode === 'edit' && productId && Array.isArray(editProduct?.images)) {
+      if (mode === 'edit' && savedProductId && Array.isArray(editProduct?.images)) {
         await Promise.all(
           editProduct.images
             .filter((old) => old?.id)
-            .map((old) => deleteProductImage(product.id, old.id).catch(() => {}))
+            .map((old) => deleteProductImage(savedProductId, old.id).catch(() => {}))
         );
       }
 
@@ -794,20 +795,20 @@ export default function ProductWizardScreen({ route, navigation }) {
       }
       if (imageUploads.length > 0) {
         await Promise.all(
-          imageUploads.map((payload) => addProductImage(product.id, payload))
+          imageUploads.map((payload) => addProductImage(savedProductId, payload))
         );
       }
 
       const variants = buildVariants();
       if (variants.length > 0) {
-        await bulkUpdateVariants(product.id, variants);
+        await bulkUpdateVariants(savedProductId, variants);
       }
 
-      if (publish) await publishProduct(product.id);
+      if (publish) await publishProduct(savedProductId);
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       qc.invalidateQueries({ queryKey: ['products'] });
-      qc.invalidateQueries({ queryKey: ['product', product.id] });
+      qc.invalidateQueries({ queryKey: ['product', savedProductId] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
       openConfirm(
         publish ? 'Published!' : 'Saved!',

@@ -21,6 +21,13 @@ const WARM_BG = '#fffaf5';
 const CARD_BG = '#ffffff';
 const SECTION_BORDER = '#fde8d0';
 const AMBER_500 = '#f59e0b';
+const UNCATEGORIZED_NAMES = new Set(['uncategorized', 'uncategorised', 'uncategorized products', 'uncategorised products']);
+
+function isRealCategory(category) {
+  if (!category?.id) return false;
+  const name = String(category.name || '').trim().toLowerCase();
+  return Boolean(name) && !UNCATEGORIZED_NAMES.has(name);
+}
 
 // Sentinel "category" for products that have no sub-category (category_id null or
 // sitting on a type root). Lets admins reach products that would otherwise be
@@ -119,7 +126,7 @@ export default function ProductsScreen({ navigation, route }) {
     const root = rootFor(type);
     return root ? categories.filter((c) => c.parent_id === root.id) : [];
   };
-  const subCats = selectedType ? childrenOf(selectedType) : [];
+  const subCats = selectedType ? childrenOf(selectedType).filter(isRealCategory) : [];
 
   const categoryStats = useMemo(() => {
     if (!Array.isArray(inventoryData)) return {};

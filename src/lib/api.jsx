@@ -4,6 +4,11 @@ import { API_URL } from '../constants';
 
 // Single in-flight refresh shared by all concurrent 401s.
 let refreshPromise = null;
+const DEBUG_API = typeof __DEV__ !== 'undefined' && __DEV__;
+
+function apiLog(...args) {
+  if (DEBUG_API) console.log(...args);
+}
 
 async function refreshSession() {
   if (refreshPromise) return refreshPromise;
@@ -14,10 +19,10 @@ async function refreshSession() {
     try {
       const url = `${API_URL}/auth/refresh`;
       const body = JSON.stringify({ refreshToken });
-      console.log('──────── API REFRESH REQUEST ────────');
-      console.log(`POST ${url}`);
-      console.log('Headers:', JSON.stringify({ 'Content-Type': 'application/json' }, null, 2));
-      console.log('Body:', body);
+      apiLog('──────── API REFRESH REQUEST ────────');
+      apiLog(`POST ${url}`);
+      apiLog('Headers:', JSON.stringify({ 'Content-Type': 'application/json' }, null, 2));
+      apiLog('Body:', body);
 
       const res = await fetch(url, {
         method: 'POST',
@@ -25,10 +30,10 @@ async function refreshSession() {
         body,
       });
 
-      console.log(`──────── API REFRESH RESPONSE (${res.status}) ────────`);
+      apiLog(`──────── API REFRESH RESPONSE (${res.status}) ────────`);
       const text = await res.text();
-      console.log('Response Body:', text);
-      console.log('────────────────────────────────');
+      apiLog('Response Body:', text);
+      apiLog('────────────────────────────────');
 
       if (!res.ok) return null;
       const data = text ? JSON.parse(text) : null;
@@ -36,7 +41,7 @@ async function refreshSession() {
       useAuthStore.getState().setAuth(data.token, useAuthStore.getState().user, data.refreshToken);
       return data.token;
     } catch (e) {
-      console.log('[API REFRESH ERROR]', e.message);
+      apiLog('[API REFRESH ERROR]', e.message);
       return null;
     } finally {
       refreshPromise = null;
@@ -59,21 +64,21 @@ async function apiFetch(path, options = {}, _retry = false) {
   }
 
   const url = `${API_URL}${path}`;
-  console.log('──────── API REQUEST ────────');
-  console.log(`${options.method || 'GET'} ${url}`);
-  console.log('Headers:', JSON.stringify(headers, null, 2));
+  apiLog('──────── API REQUEST ────────');
+  apiLog(`${options.method || 'GET'} ${url}`);
+  apiLog('Headers:', JSON.stringify(headers, null, 2));
   if (options.body) {
     if (options.body instanceof FormData) {
-      console.log('Body: [FormData]');
+      apiLog('Body: [FormData]');
     } else {
-      console.log('Body:', options.body);
+      apiLog('Body:', options.body);
     }
   }
 
   const res = await fetch(url, { ...options, headers });
 
-  console.log(`──────── API RESPONSE (${res.status}) ────────`);
-  console.log(`URL: ${url}`);
+  apiLog(`──────── API RESPONSE (${res.status}) ────────`);
+  apiLog(`URL: ${url}`);
 
   const isAuthEndpoint =
     path.startsWith('/auth/login') ||
@@ -92,20 +97,20 @@ async function apiFetch(path, options = {}, _retry = false) {
   }
 
   if (res.status === 204) {
-    console.log('Response Body: [204 No Content]');
-    console.log('────────────────────────────────');
+    apiLog('Response Body: [204 No Content]');
+    apiLog('────────────────────────────────');
     return null;
   }
 
   let data;
   try {
     const text = await res.text();
-    console.log('Response Body:', text);
-    console.log('────────────────────────────────');
+    apiLog('Response Body:', text);
+    apiLog('────────────────────────────────');
     data = text ? JSON.parse(text) : null;
   } catch (e) {
-    console.log('[API JSON PARSE ERROR]', e.message);
-    console.log('────────────────────────────────');
+    apiLog('[API JSON PARSE ERROR]', e.message);
+    apiLog('────────────────────────────────');
     throw new Error(`Request failed (${res.status}) - Invalid JSON response`);
   }
 
@@ -346,6 +351,7 @@ export const updateCoupon = (id, payload) =>
 // ─── Analytics ────────────────────────────────────────────────────────────────
 
 export const getDashboard = () => apiFetch('/analytics/dashboard');
+export const getDashboardUsage = () => apiFetch('/dashboard/usage');
 export const getSales = () => apiFetch('/analytics/sales');
 export const getInventory = (params = {}) => {
   const qs = new URLSearchParams();

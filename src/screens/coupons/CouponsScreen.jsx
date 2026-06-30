@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View, Text, FlatList, Pressable, Modal, TextInput,
   ActivityIndicator, Alert, RefreshControl, Switch, ScrollView,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -72,14 +73,24 @@ function CreateCouponModal({ visible, onClose, onSave, isSaving, categories, pro
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable className="flex-1 bg-black/40" onPress={onClose}>
-        <Pressable
-          className="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl px-5 pt-5"
-          style={{ maxHeight: '88%' }}
-          onPress={() => {}}
+      <KeyboardAvoidingView
+        className="flex-1"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
+      >
+        <Pressable className="flex-1 bg-black/40 justify-end" onPress={onClose}>
+          <Pressable
+            className="bg-white rounded-t-3xl px-5 pt-5"
+            style={{ maxHeight: '88%' }}
+            onPress={() => {}}
         >
           <Text className="text-lg font-bold text-gray-900 mb-4">Create Coupon</Text>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 28 }}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            contentContainerStyle={{ paddingBottom: 36 }}
+          >
             {/* Code */}
             <Text className="text-sm font-medium text-gray-700 mb-1.5">Coupon Code *</Text>
             <TextInput
@@ -221,8 +232,9 @@ function CreateCouponModal({ visible, onClose, onSave, isSaving, categories, pro
               </Pressable>
             </View>
           </ScrollView>
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

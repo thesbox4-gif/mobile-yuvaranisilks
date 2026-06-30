@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
 import ScreenHeader from '../../components/ui/ScreenHeader';
-import { getEmployees, getUsers, approveEmployee } from '../../lib/api';
+import { getEmployees, approveEmployee } from '../../lib/api';
 import { initials } from '../../lib/utils';
 import { confirmDialog } from '../../lib/dialog';
 import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
@@ -88,17 +88,13 @@ export default function TeamScreen({ navigation, route }) {
   const { data: employeeList = [], isLoading, refetch } = useQuery({
     queryKey: ['team', activeTab],
     queryFn: async () => {
-      // getEmployees / getUsers return { data: [...] } — read .data, not .employees.
+      // Keep this list aligned with More > Employees > Active.
       if (activeTab === 'pending') {
         const res = await getEmployees({ status: 'pending' });
         return res?.data ?? [];
       }
-      // Active tab = approved employees + every admin.
-      const [emp, admins] = await Promise.all([
-        getEmployees({ status: 'approved' }),
-        getUsers({ role: 'admin' }),
-      ]);
-      return [...(admins?.data ?? []), ...(emp?.data ?? [])];
+      const res = await getEmployees({ status: 'approved' });
+      return res?.data ?? [];
     },
     staleTime: 30_000,
   });

@@ -6,7 +6,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { ImageUp, Sparkles } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import useAuthStore from '../../store/authStore';
+<<<<<<< Updated upstream
 import { getDashboard, getOfflineSales, getCategoryInventory, getProducts, getUsageLimits, getSubscriberStats } from '../../lib/api';
+=======
+import { getDashboard, getDashboardUsage, getOfflineSales, getCategoryInventory, getProducts } from '../../lib/api';
+>>>>>>> Stashed changes
 import { formatPrice } from '../../lib/utils';
 import { useRefetchOnFocus } from '../../hooks/useRefetchOnFocus';
 import { resolveColorHex } from '../../lib/colors';
@@ -41,6 +45,10 @@ function SubCategoryDetailProducts({ subCategoryId }) {
   });
 
   const products = data?.data ?? [];
+  const stockedProducts = products.filter((p) => {
+    const variants = Array.isArray(p.variants) ? p.variants : [];
+    return variants.reduce((s, v) => s + Number(v.quantity || 0), 0) > 0;
+  });
 
   if (isLoading) {
     return (
@@ -51,7 +59,7 @@ function SubCategoryDetailProducts({ subCategoryId }) {
     );
   }
 
-  if (products.length === 0) {
+  if (stockedProducts.length === 0) {
     return (
       <View className="py-12 items-center justify-center">
         <Ionicons name="alert-circle-outline" size={32} color="#9ca3af" />
@@ -62,7 +70,7 @@ function SubCategoryDetailProducts({ subCategoryId }) {
 
   return (
     <ScrollView className="flex-1 px-4" showsVerticalScrollIndicator={false}>
-      {products.map((p) => {
+      {stockedProducts.map((p) => {
         const variants = p.variants ?? [];
         const totalQty = variants.reduce((s, v) => s + (v.quantity || 0), 0);
         const primaryImg = (p.images ?? []).find(i => i.is_primary) || (p.images ?? [])[0];
@@ -132,6 +140,26 @@ const MAIN_CATS = [
   { type: 'jewellery', label: 'Jewellery', icon: 'diamond', color: '#d97706' },
 ];
 
+const UNCATEGORIZED_NAMES = new Set(['uncategorized', 'uncategorised', 'uncategorized products', 'uncategorised products']);
+
+function isRealStockCategory(row) {
+  if (!row?.id) return false;
+  const name = String(row.name || '').trim().toLowerCase();
+  if (!name || UNCATEGORIZED_NAMES.has(name)) return false;
+  return Number(row.itemsLeft ?? 0) > 0;
+}
+
+function firstNumber(obj, keys, fallback = 0) {
+  for (const key of keys) {
+    const value = obj?.[key];
+    if (value !== undefined && value !== null && value !== '') {
+      const number = Number(value);
+      if (!Number.isNaN(number)) return number;
+    }
+  }
+  return fallback;
+}
+
 function getFormattedDate() {
   const d = new Date();
   return `${DAYS[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]}`;
@@ -165,6 +193,7 @@ function MetricCard({ label, value, onPress }) {
   );
 }
 
+<<<<<<< Updated upstream
 // KPI card for the dashboard image-usage section. Uses lucide-react-native icons
 // and a progress bar whose colour reacts to how much of the limit is consumed.
 function UsageKpiCard({ Icon, label, used, limit, color, bg }) {
@@ -222,6 +251,25 @@ function LimitWarningBanner({ usage }) {
     <View className="bg-red-50 border border-red-200 rounded-xl px-3 py-2.5 mt-2 flex-row items-center">
       <Ionicons name="warning" size={16} color="#dc2626" />
       <Text className="text-xs text-red-700 font-semibold ml-2 flex-1">{msg} Contact support to upgrade.</Text>
+=======
+function LimitCard({ label, used, total, accent }) {
+  const hasLimit = total > 0;
+  const remaining = hasLimit ? Math.max(0, total - used) : null;
+  const pct = hasLimit ? Math.min(100, (used / total) * 100) : 0;
+
+  return (
+    <View className="flex-1 bg-white rounded-xl p-3 mx-1 shadow-sm">
+      <Text className="text-[10px] text-gray-500 text-center">{label}</Text>
+      <Text className="text-lg font-bold text-gray-900 text-center mt-1">
+        {hasLimit ? `${used}/${total}` : `${used}`}
+      </Text>
+      <View className="h-1.5 bg-gray-100 rounded-full overflow-hidden mt-2">
+        <View className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: accent }} />
+      </View>
+      <Text className="text-[10px] text-gray-400 text-center mt-1">
+        {hasLimit ? `${remaining} remaining` : 'No limit set'}
+      </Text>
+>>>>>>> Stashed changes
     </View>
   );
 }
@@ -291,12 +339,18 @@ export default function DashboardScreen({ navigation }) {
   });
 
   const { data: usage, refetch: refetchUsage } = useQuery({
+<<<<<<< Updated upstream
     queryKey: ['usage-limits'],
     queryFn: getUsageLimits,
+=======
+    queryKey: ['dashboard-usage'],
+    queryFn: getDashboardUsage,
+>>>>>>> Stashed changes
     staleTime: 60_000,
     enabled: isAdmin,
   });
 
+<<<<<<< Updated upstream
   const { data: subscribers, refetch: refetchSubscribers } = useQuery({
     queryKey: ['subscriber-stats'],
     queryFn: getSubscriberStats,
@@ -304,6 +358,8 @@ export default function DashboardScreen({ navigation }) {
     enabled: isAdmin,
   });
 
+=======
+>>>>>>> Stashed changes
   const recentSales = salesData?.data ?? salesData ?? [];
   const isLoading = (isAdmin || isEmployee) && dashLoading;
 
@@ -322,6 +378,7 @@ export default function DashboardScreen({ navigation }) {
     refetchSales();
     refetchCat();
     refetchUsage();
+<<<<<<< Updated upstream
     refetchSubscribers();
   };
 
@@ -337,21 +394,30 @@ export default function DashboardScreen({ navigation }) {
     if (uploadLimit > 0 && uploadUsed >= uploadLimit) fireLimitAlert('upload');
     if (genLimit > 0 && genUsed >= genLimit) fireLimitAlert('generate');
   }, [usage, isAdmin]);
+=======
+  };
+
+  useRefetchOnFocus(['dashboard'], ['offline-sales'], ['category-inventory'], ['dashboard-usage']);
+>>>>>>> Stashed changes
 
   // Roll the per-category inventory up into the 3 main product types.
   const mainCategories = MAIN_CATS.map((m) => {
-    const items = (catInv ?? []).filter((c) => c.type === m.type);
-    const inStock = items.filter((c) => Number(c.itemsLeft) > 0);
+    const items = (catInv ?? []).filter((c) => c.type === m.type && isRealStockCategory(c));
     return {
       ...m,
       subCount: items.length,
-      productCount: inStock.reduce((s, c) => s + (c.productCount || 0), 0),
-      variantCount: inStock.reduce((s, c) => s + (c.variantCount || 0), 0),
-      itemsLeft: inStock.reduce((s, c) => s + (c.itemsLeft || 0), 0),
-      lowStock: inStock.reduce((s, c) => s + (c.lowStock || 0), 0),
-      subcategories: inStock,
+      productCount: items.reduce((s, c) => s + Number(c.productCount || 0), 0),
+      variantCount: items.reduce((s, c) => s + Number(c.variantCount || 0), 0),
+      itemsLeft: items.reduce((s, c) => s + Number(c.itemsLeft || 0), 0),
+      lowStock: items.reduce((s, c) => s + Number(c.lowStock || 0), 0),
+      subcategories: items,
     };
   });
+
+  const uploadedUsed = firstNumber(usage, ['uploadedUsed']);
+  const uploadedLimit = firstNumber(usage, ['uploadedLimit']);
+  const generatedUsed = firstNumber(usage, ['generatedUsed']);
+  const generatedLimit = firstNumber(usage, ['generatedLimit']);
 
   const navigateToTab = (tabName, screen, params) => {
     if (screen) {
@@ -600,6 +666,7 @@ export default function DashboardScreen({ navigation }) {
           </View>
         )}
 
+<<<<<<< Updated upstream
         {/* Store Overview (Admin) */}
         {isAdmin && !dashLoading && stats && (
           <View className="mb-4">
@@ -669,6 +736,14 @@ export default function DashboardScreen({ navigation }) {
                 color="#db2777"
                 hint="Date sent"
               />
+=======
+        {isAdmin && !dashLoading && stats && (
+          <View className="mb-4">
+            <Text className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Image Limits</Text>
+            <View className="flex-row">
+              <LimitCard label="Uploaded" used={uploadedUsed} total={uploadedLimit} accent="#0ea5e9" />
+              <LimitCard label="Generated" used={generatedUsed} total={generatedLimit} accent="#8b5cf6" />
+>>>>>>> Stashed changes
             </View>
           </View>
         )}

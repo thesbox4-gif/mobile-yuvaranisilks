@@ -101,10 +101,9 @@ export default function InventoryListScreen({ navigation, route }) {
   const variantRows = useMemo(() => {
     if (filter === 'products' || !Array.isArray(inventory)) return [];
     return inventory.filter((v) => {
-      if (!v.product?.published) return false;
       const qty = Number(v.quantity ?? 0);
       if (filter === 'low_stock') return qty > 0 && qty < 5;
-      if (filter === 'out_of_stock') return qty === 0;
+      if (filter === 'out_of_stock') return qty <= 0;
       return false;
     });
   }, [inventory, filter]);

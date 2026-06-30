@@ -6,7 +6,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
-import { getEmployees, approveEmployee } from '../../lib/api';
+import { getEmployees, approveEmployee, deleteEmployee } from '../../lib/api';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
 import ScreenHeader from '../../components/ui/ScreenHeader';
@@ -58,6 +58,17 @@ export default function EmployeesScreen({ navigation }) {
     onError: (err) => alertDialog('Error', err.message),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id) => deleteEmployee(id),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      qc.invalidateQueries({ queryKey: ['employees'], refetchType: 'all' });
+      qc.invalidateQueries({ queryKey: ['team'], refetchType: 'all' });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+    onError: (err) => alertDialog('Error', err.message || 'Could not delete employee.'),
+  });
+
   const handleAction = (emp, action) => {
     const label = action === 'approve' ? 'Approve' : 'Reject';
     confirmDialog({
@@ -66,6 +77,16 @@ export default function EmployeesScreen({ navigation }) {
       confirmText: label,
       destructive: action === 'reject',
       onConfirm: () => approveMutation.mutate({ id: emp.id, action }),
+    });
+  };
+
+  const handleDelete = (emp) => {
+    confirmDialog({
+      title: 'Delete Employee',
+      message: `Delete ${emp.name}? This removes the employee account if it is not linked to protected records.`,
+      confirmText: 'Delete',
+      destructive: true,
+      onConfirm: () => deleteMutation.mutate(emp.id),
     });
   };
 
@@ -130,15 +151,22 @@ export default function EmployeesScreen({ navigation }) {
               {activeTab === 0 && (
                 <View className="flex-row gap-2">
                   <Pressable
+                    onPress={() => handleDelete(item)}
+                    disabled={deleteMutation.isPending}
+                    className="px-3 py-2 border border-red-200 rounded-xl active:bg-red-50"
+                  >
+                    <Ionicons name="trash-outline" size={14} color="#dc2626" />
+                  </Pressable>
+                  <Pressable
                     onPress={() => handleAction(item, 'reject')}
-                    disabled={approveMutation.isPending}
+                    disabled={approveMutation.isPending || deleteMutation.isPending}
                     className="px-4 py-2 border border-red-200 rounded-xl active:bg-red-50"
                   >
                     <Text className="text-xs text-red-600 font-semibold">Reject</Text>
                   </Pressable>
                   <Pressable
                     onPress={() => handleAction(item, 'approve')}
-                    disabled={approveMutation.isPending}
+                    disabled={approveMutation.isPending || deleteMutation.isPending}
                     className="px-4 py-2 bg-green-500 rounded-xl active:bg-green-600"
                   >
                     {approveMutation.isPending && approveMutation.variables?.id === item.id ? (
@@ -151,9 +179,18 @@ export default function EmployeesScreen({ navigation }) {
               )}
 
               {activeTab === 1 && (
-                <View className="bg-green-100 px-2.5 py-1 rounded-full flex-row items-center">
-                  <Ionicons name="checkmark-circle" size={12} color="#15803d" />
-                  <Text className="text-xs text-green-700 font-medium ml-1">Active</Text>
+                <View className="flex-row items-center gap-2">
+                  <Pressable
+                    onPress={() => handleDelete(item)}
+                    disabled={deleteMutation.isPending}
+                    className="w-8 h-8 border border-red-200 rounded-full items-center justify-center active:bg-red-50"
+                  >
+                    <Ionicons name="trash-outline" size={14} color="#dc2626" />
+                  </Pressable>
+                  <View className="bg-green-100 px-2.5 py-1 rounded-full flex-row items-center">
+                    <Ionicons name="checkmark-circle" size={12} color="#15803d" />
+                    <Text className="text-xs text-green-700 font-medium ml-1">Active</Text>
+                  </View>
                 </View>
               )}
             </View>
